@@ -1,4 +1,10 @@
-/bootstrap/compiled.php
-.env.*.php
-.env.php
-.env
+log/
+.idea/workspace.xml
+.idea/tasks.xml
+vendor/
+tests/vendor/
+tests/log/
+phpunit.xml
+phpdoc.xml
+composer.lock
+_ide_helper.php
