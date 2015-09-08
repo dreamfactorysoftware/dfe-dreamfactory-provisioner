@@ -1,4 +1,4 @@
-<?php namespace DreamFactory\Enterprise\Services\Provisioners\DreamFactory;
+<?php namespace DreamFactory\Enterprise\Provisioners\DreamFactory;
 
 use DreamFactory\Enterprise\Common\Contracts\OfferingsAware;
 use DreamFactory\Enterprise\Common\Enums\AppKeyClasses;
@@ -20,6 +20,8 @@ use DreamFactory\Enterprise\Services\Facades\Provision;
 use DreamFactory\Enterprise\Services\Provisioners\BaseProvisioner;
 use DreamFactory\Library\Utility\IfSet;
 use Illuminate\Contracts\Filesystem\Filesystem;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Event;
 
 class InstanceProvisioner extends BaseProvisioner implements OfferingsAware
 {
@@ -208,7 +210,7 @@ class InstanceProvisioner extends BaseProvisioner implements OfferingsAware
             //  Create the guest row...
             $_host = $this->getFullyQualifiedDomainName($_name);
 
-            \DB::transaction(function () use ($_instance, $_host){
+            DB::transaction(function () use ($_instance, $_host){
                 /**
                  * Add guest data if there is a guest record
                  */
@@ -228,7 +230,7 @@ class InstanceProvisioner extends BaseProvisioner implements OfferingsAware
         }
 
         //  Fire off a "provisioned" event...
-        \Event::fire('dfe.provisioned', [$this, $request, $_instance->getMetadata()]);
+        Event::fire('dfe.provisioned', [$this, $request, $_instance->getMetadata()]);
 
         $this->info('<<< provisioning of instance "' . $_name . '" complete');
 
@@ -269,7 +271,7 @@ class InstanceProvisioner extends BaseProvisioner implements OfferingsAware
         }
 
         //  Fire off a "shutdown" event...
-        \Event::fire('dfe.deprovisioned', [$this, $request]);
+        Event::fire('dfe.deprovisioned', [$this, $request]);
 
         $this->debug('instance row deleted from database');
 

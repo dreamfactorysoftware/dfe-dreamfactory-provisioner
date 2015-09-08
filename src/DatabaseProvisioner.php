@@ -1,4 +1,4 @@
-<?php namespace DreamFactory\Enterprise\Services\Provisioners\DreamFactory;
+<?php namespace DreamFactory\Enterprise\Provisioners\DreamFactory;
 
 use DreamFactory\Enterprise\Common\Contracts\PortableData;
 use DreamFactory\Enterprise\Common\Traits\Archivist;
@@ -11,6 +11,7 @@ use DreamFactory\Library\Utility\Disk;
 use DreamFactory\Library\Utility\Json;
 use Illuminate\Database\Connection;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
+use Illuminate\Support\Facades\DB;
 
 class DatabaseProvisioner extends BaseDatabaseProvisioner implements PortableData
 {
@@ -250,7 +251,7 @@ class DatabaseProvisioner extends BaseDatabaseProvisioner implements PortableDat
         config(['database.connections.' . $_server->server_id_text => $_config]);
 
         //  Create a connection and return. It's in Joe Pesce's hands now...
-        return [\DB::connection($_dbServer), $_config, $_server];
+        return [DB::connection($_dbServer), $_config, $_server];
     }
 
     /**
@@ -278,7 +279,7 @@ class DatabaseProvisioner extends BaseDatabaseProvisioner implements PortableDat
                 $_sql = 'SELECT SCHEMA_NAME FROM information_schema.SCHEMATA WHERE SCHEMA_NAME = :schema_name';
 
                 //  Make sure the database name is unique as well.
-                $_names = \DB::select($_sql, [':schema_name' => $_dbName]);
+                $_names = DB::select($_sql, [':schema_name' => $_dbName]);
 
                 if (!empty($_names)) {
                     throw new SchemaExistsException('The schema "' . $_dbName . '" already exists.');

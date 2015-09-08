@@ -1,4 +1,4 @@
-<?php namespace DreamFactory\Enterprise\Services\Provisioners\DreamFactory;
+<?php namespace DreamFactory\Enterprise\Provisioners\DreamFactory;
 
 use DreamFactory\Enterprise\Common\Contracts\PortableData;
 use DreamFactory\Enterprise\Common\Facades\InstanceStorage;
