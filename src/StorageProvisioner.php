@@ -5,6 +5,7 @@ use DreamFactory\Enterprise\Common\Facades\InstanceStorage;
 use DreamFactory\Enterprise\Common\Traits\Guzzler;
 use DreamFactory\Enterprise\Services\Provisioners\BaseStorageProvisioner;
 use DreamFactory\Library\Utility\Disk;
+use Illuminate\Support\Facades\Event;
 use League\Flysystem\Filesystem;
 use League\Flysystem\ZipArchive\ZipArchiveAdapter;
 
@@ -106,6 +107,10 @@ class StorageProvisioner extends BaseStorageProvisioner implements PortableData
             throw $_ex;
         }
 
+        //  Fire off a "storage.provisioned" event...
+        /** @noinspection PhpUndefinedMethodInspection */
+        Event::fire('dfe.storage.provisioned', [$this, $request]);
+
         $this->debug('Storage provisioned for instance "' . $_instance->instance_id_text . '"');
 
         $this->privatePath = $_privatePath;
@@ -131,6 +136,10 @@ class StorageProvisioner extends BaseStorageProvisioner implements PortableData
 
             return false;
         }
+
+        //  Fire off a "storage.deprovisioned" event...
+        /** @noinspection PhpUndefinedMethodInspection */
+        Event::fire('dfe.storage.deprovisioned', [$this, $request]);
 
         $this->debug('instance "' . $_instance->instance_id_text . '"storage removed');
 
@@ -200,6 +209,10 @@ class StorageProvisioner extends BaseStorageProvisioner implements PortableData
         unset($_from);
         $_path && is_dir(dirname($_path)) && Disk::deleteTree(dirname($_path));
 
+        //  Fire off a "storage.imported" event...
+        /** @noinspection PhpUndefinedMethodInspection */
+        Event::fire('dfe.storage.imported', [$this, $request]);
+
         return $_restored;
     }
 
@@ -219,6 +232,10 @@ class StorageProvisioner extends BaseStorageProvisioner implements PortableData
         }
 
         !$request->get('keep-work', false) && $this->deleteWorkPath($_tag);
+
+        //  Fire off a "storage.exported" event...
+        /** @noinspection PhpUndefinedMethodInspection */
+        Event::fire('dfe.storage.exported', [$this, $request]);
 
         //  The name of the file in the snapshot mount
         return $_file;
