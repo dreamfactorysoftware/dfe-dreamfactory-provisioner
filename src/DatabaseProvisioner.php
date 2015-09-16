@@ -12,6 +12,7 @@ use DreamFactory\Library\Utility\Json;
 use Illuminate\Database\Connection;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Event;
 
 class DatabaseProvisioner extends BaseDatabaseProvisioner implements PortableData
 {
@@ -80,6 +81,10 @@ class DatabaseProvisioner extends BaseDatabaseProvisioner implements PortableDat
 
         $this->info('<<< provisioning database "' . $_creds['database'] . '" SUCCESS');
 
+        //  Fire off a "database.provisioned" event...
+        /** @noinspection PhpUndefinedMethodInspection */
+        Event::fire('dfe.database.provisioned', [$this, $request]);
+
         return array_merge($_rootConfig, $_creds);
     }
 
@@ -108,6 +113,10 @@ class DatabaseProvisioner extends BaseDatabaseProvisioner implements PortableDat
         }
 
         $this->info('<<< deprovisioning database "' . $_instance->db_name_text . '" SUCCESS');
+
+        //  Fire off a "database.deprovisioned" event...
+        /** @noinspection PhpUndefinedMethodInspection */
+        Event::fire('dfe.database.deprovisioned', [$this, $request]);
 
         return true;
     }
@@ -155,6 +164,10 @@ class DatabaseProvisioner extends BaseDatabaseProvisioner implements PortableDat
         //  Clean up temp space...
         unlink($_from);
 
+        //  Fire off a "database.imported" event...
+        /** @noinspection PhpUndefinedMethodInspection */
+        Event::fire('dfe.database.imported', [$this, $request]);
+
         return $_results;
     }
 
@@ -195,6 +208,10 @@ class DatabaseProvisioner extends BaseDatabaseProvisioner implements PortableDat
         //  Copy it over to the snapshot area
         $this->writeStream($_instance->getSnapshotMount(), $_workPath . DIRECTORY_SEPARATOR . $_target, $_target);
         $this->deleteWorkPath($_tag);
+
+        //  Fire off a "database.exported" event...
+        /** @noinspection PhpUndefinedMethodInspection */
+        Event::fire('dfe.database.exported', [$this, $request]);
 
         //  The name of the file in the snapshot mount
         return $_target;
@@ -251,6 +268,8 @@ class DatabaseProvisioner extends BaseDatabaseProvisioner implements PortableDat
         config(['database.connections.' . $_server->server_id_text => $_config]);
 
         //  Create a connection and return. It's in Joe Pesce's hands now...
+        /** @noinspection PhpUndefinedMethodInspection */
+
         return [DB::connection($_dbServer), $_config, $_server];
     }
 
@@ -279,6 +298,7 @@ class DatabaseProvisioner extends BaseDatabaseProvisioner implements PortableDat
                 $_sql = 'SELECT SCHEMA_NAME FROM information_schema.SCHEMATA WHERE SCHEMA_NAME = :schema_name';
 
                 //  Make sure the database name is unique as well.
+                /** @noinspection PhpUndefinedMethodInspection */
                 $_names = DB::select($_sql, [':schema_name' => $_dbName]);
 
                 if (!empty($_names)) {

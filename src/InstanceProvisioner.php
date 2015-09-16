@@ -29,10 +29,10 @@ class InstanceProvisioner extends BaseProvisioner implements OfferingsAware
     //* Constants
     //******************************************************************************
 
-    /**
-     * @type string Our provisioner id
-     */
+    /** @inheritdoc */
     const PROVISIONER_ID = 'dreamfactory';
+    /** @inheritdoc */
+    const RESOURCE_URI = '/api/v2/system';
 
     //******************************************************************************
     //* Traits
@@ -210,6 +210,7 @@ class InstanceProvisioner extends BaseProvisioner implements OfferingsAware
             //  Create the guest row...
             $_host = $this->getFullyQualifiedDomainName($_name);
 
+            /** @noinspection PhpUndefinedMethodInspection */
             DB::transaction(function () use ($_instance, $_host){
                 /**
                  * Add guest data if there is a guest record
@@ -230,6 +231,7 @@ class InstanceProvisioner extends BaseProvisioner implements OfferingsAware
         }
 
         //  Fire off a "provisioned" event...
+        /** @noinspection PhpUndefinedMethodInspection */
         Event::fire('dfe.provisioned', [$this, $request, $_instance->getMetadata()]);
 
         $this->info('<<< provisioning of instance "' . $_name . '" complete');
@@ -271,6 +273,7 @@ class InstanceProvisioner extends BaseProvisioner implements OfferingsAware
         }
 
         //  Fire off a "shutdown" event...
+        /** @noinspection PhpUndefinedMethodInspection */
         Event::fire('dfe.deprovisioned', [$this, $request]);
 
         $this->debug('instance row deleted from database');
