@@ -20,35 +20,35 @@
   "repositories":      [
     {
       "type": "vcs",
-      "url":  "git@github.com:dreamfactorysoftware/dfe-database.git"
+      "url":  "https://github.com/dreamfactorysoftware/dfe-database.git"
     },
     {
       "type": "vcs",
-      "url":  "git@github.com:dreamfactorysoftware/dfe-storage.git"
+      "url":  "https://github.com/dreamfactorysoftware/dfe-storage.git"
     },
     {
       "type": "vcs",
-      "url":  "git@github.com:dreamfactorysoftware/dfe-common.git"
+      "url":  "https://github.com/dreamfactorysoftware/dfe-common.git"
     },
     {
       "type": "vcs",
-      "url":  "git@github.com:dreamfactorysoftware/dfe-console.git"
+      "url":  "https://github.com/dreamfactorysoftware/dfe-console.git"
     },
     {
       "type": "vcs",
-      "url":  "git@github.com:dreamfactorysoftware/dfe-audit.git"
+      "url":  "https://github.com/dreamfactorysoftware/dfe-audit.git"
     },
     {
       "type": "vcs",
-      "url":  "git@github.com:dreamfactorysoftware/dfe-partner.git"
+      "url":  "https://github.com/dreamfactorysoftware/dfe-partner.git"
     },
     {
       "type": "vcs",
-      "url":  "git@github.com:dreamfactorysoftware/dfe-ops-client.git"
+      "url":  "https://github.com/dreamfactorysoftware/dfe-ops-client.git"
     },
     {
       "type": "vcs",
-      "url":  "git@github.com:dreamfactorysoftware/dfe-api-client.git"
+      "url":  "https://github.com/dreamfactorysoftware/dfe-api-client.git"
     }
   ],
   "minimum-stability": "dev",
