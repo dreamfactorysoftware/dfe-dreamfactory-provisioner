@@ -53,9 +53,9 @@
   ],
   "minimum-stability": "dev",
   "require":           {
-    "dreamfactory/dfe-audit":    "dev-develop as dev-master",
+    "dreamfactory/php-utils":                "1.1.*",
     "dreamfactory/dfe-storage":  "dev-develop as dev-master",
-    "dreamfactory/dfe-database": "dev-develop as dev-master",
+    "dreamfactory/dfe-database": "1.0.*",
     "dreamfactory/dfe-common":   "dev-develop as dev-master"
   },
   "require-dev":       {
@@ -68,15 +68,11 @@
     "league/flysystem-sftp":                 "~1.0",
     "league/flysystem-ziparchive":           "~1.0",
     "league/flysystem-eventable-filesystem": "~1.0",
-    "dreamfactory/dfe-audit":                "~1.0",
-    "dreamfactory/php-utils":                "1.1.*",
+    "dreamfactory/dfe-audit":    "1.0.*",
     "dreamfactory/console-tools":            "dev-develop as dev-master",
-    "dreamfactory/dfe-common":               "dev-develop as dev-master",
     "dreamfactory/dfe-partner":              "dev-develop as dev-master",
     "dreamfactory/dfe-ops-client":           "dev-develop as dev-master",
     "dreamfactory/dfe-api-client":           "dev-develop as dev-master",
-    "dreamfactory/dfe-storage":              "dev-develop as dev-master",
-    "dreamfactory/dfe-database":             "dev-develop as dev-master",
     "barryvdh/laravel-cors":                 "0.6.x",
     "dreamfactory/dfe-console":              "dev-develop as dev-master",
     "phpunit/phpunit":                       "@stable",
