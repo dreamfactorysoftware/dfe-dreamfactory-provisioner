@@ -1,9 +1,9 @@
 <?php namespace DreamFactory\Enterprise\Provisioners\DreamFactory;
 
 use DreamFactory\Enterprise\Common\Contracts\PortableData;
-use DreamFactory\Enterprise\Common\Facades\InstanceStorage;
 use DreamFactory\Enterprise\Common\Traits\Guzzler;
 use DreamFactory\Enterprise\Services\Provisioners\BaseStorageProvisioner;
+use DreamFactory\Enterprise\Storage\Facades\InstanceStorage;
 use DreamFactory\Library\Utility\Disk;
 use Illuminate\Support\Facades\Event;
 use League\Flysystem\Filesystem;
