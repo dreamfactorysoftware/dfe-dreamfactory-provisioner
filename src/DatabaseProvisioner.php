@@ -30,6 +30,9 @@ class DatabaseProvisioner extends BaseDatabaseProvisioner implements PortableDat
     protected function doProvision($request)
     {
         $_instance = $request->getInstance();
+
+        $this->info('[provisioning:database] instance "' . $_instance->instance_id_text . '" begin');
+
         $_serverId = $_instance->db_server_id;
 
         if (empty($_serverId)) {
@@ -42,7 +45,7 @@ class DatabaseProvisioner extends BaseDatabaseProvisioner implements PortableDat
         //  1. Create a random user and password for the instance
         $_creds = $this->generateSchemaCredentials($_instance);
 
-        $this->debug('>>> provisioning database "' . $_creds['database'] . '"');
+        $this->debug('* instance database "' . $_creds['database'] . '" assigned');
 
         try {
             //	1. Create database
@@ -50,9 +53,9 @@ class DatabaseProvisioner extends BaseDatabaseProvisioner implements PortableDat
                 try {
                     $this->deprovision($request);
                 } catch (\Exception $_ex) {
-                    $this->notice('Unable to eradicate Klingons from planet "' .
+                    $this->error('[provisioning:database] unable to eradicate Klingons from planet "' .
                         $_creds['database'] .
-                        '" after deprovisioning.');
+                        '" after provisioning failure.');
                 }
 
                 return false;
@@ -69,7 +72,7 @@ class DatabaseProvisioner extends BaseDatabaseProvisioner implements PortableDat
                     //  Ignored, what can we do?
                 }
 
-                $this->debug('<<< provisioning database "' . $_creds['database'] . '" FAILURE');
+                $this->error('[provisioning:database] instance "' . $_instance->instance_id_text . '" FAILURE');
 
                 return false;
             }
@@ -79,11 +82,11 @@ class DatabaseProvisioner extends BaseDatabaseProvisioner implements PortableDat
             throw new ProvisioningException($_ex->getMessage(), $_ex->getCode());
         }
 
-        $this->info('<<< provisioning database "' . $_creds['database'] . '" SUCCESS');
-
         //  Fire off a "database.provisioned" event...
         /** @noinspection PhpUndefinedMethodInspection */
         Event::fire('dfe.database.provisioned', [$this, $request]);
+
+        $this->info('[provisioning:database] instance "' . $_instance->instance_id_text . '" complete');
 
         return array_merge($_rootConfig, $_creds);
     }
@@ -93,7 +96,7 @@ class DatabaseProvisioner extends BaseDatabaseProvisioner implements PortableDat
     {
         $_instance = $request->getInstance();
 
-        $this->debug('>>> deprovisioning database "' . $_instance->db_name_text . '"');
+        $this->info('[deprovisioning:database] instance "' . $_instance->instance_id_text . '" begin');
 
         //  Get a connection to the instance's database server
         list($_db, $_rootConfig, $_rootServer) = $this->getRootDatabaseConnection($_instance);
@@ -104,7 +107,7 @@ class DatabaseProvisioner extends BaseDatabaseProvisioner implements PortableDat
                 throw new ProvisioningException('Unable to delete database "' . $_instance->db_name_text . '".');
             }
         } catch (\Exception $_ex) {
-            $this->error('<<< deprovisioning database "' .
+            $this->error('[deprovisioning:database] database "' .
                 $_instance->db_name_text .
                 '" FAILURE: ' .
                 $_ex->getMessage());
@@ -112,11 +115,11 @@ class DatabaseProvisioner extends BaseDatabaseProvisioner implements PortableDat
             return false;
         }
 
-        $this->info('<<< deprovisioning database "' . $_instance->db_name_text . '" SUCCESS');
-
         //  Fire off a "database.deprovisioned" event...
         /** @noinspection PhpUndefinedMethodInspection */
         Event::fire('dfe.database.deprovisioned', [$this, $request]);
+
+        $this->info('[deprovisioning:database] instance "' . $_instance->instance_id_text . '" complete');
 
         return true;
     }
@@ -128,6 +131,8 @@ class DatabaseProvisioner extends BaseDatabaseProvisioner implements PortableDat
         $_archive = null;
         $_from = null;
         $_instance = $request->getInstance();
+
+        $this->info('[provisioning:database:import] instance "' . $_instance->instance_id_text . '" begin');
 
         //  Grab the target (zip archive) and pull out the target of the import
         $_zip = $request->getTarget();
@@ -168,6 +173,8 @@ class DatabaseProvisioner extends BaseDatabaseProvisioner implements PortableDat
         /** @noinspection PhpUndefinedMethodInspection */
         Event::fire('dfe.database.imported', [$this, $request]);
 
+        $this->info('[provisioning:database:import] instance "' . $_instance->instance_id_text . '" complete');
+
         return $_results;
     }
 
@@ -175,6 +182,8 @@ class DatabaseProvisioner extends BaseDatabaseProvisioner implements PortableDat
     public function export($request)
     {
         $_instance = $request->getInstance();
+        $this->info('[provisioning:database:export] instance "' . $_instance->instance_id_text . '" begin');
+
         $_tag = date('YmdHis') . '.' . $_instance->instance_id_text;
         $_workPath = $this->getWorkPath($_tag, true);
         $_target = $_tag . '.database.sql';
@@ -200,7 +209,9 @@ class DatabaseProvisioner extends BaseDatabaseProvisioner implements PortableDat
         exec($_command, $_output, $_return);
 
         if (0 != $_return) {
-            $this->error('Error while dumping database of instance id "' . $_instance->instance_id_text . '".');
+            $this->error('[provisioning:database:export] error dumping instance database "' .
+                $_instance->instance_id_text .
+                '".');
 
             return false;
         }
@@ -212,6 +223,8 @@ class DatabaseProvisioner extends BaseDatabaseProvisioner implements PortableDat
         //  Fire off a "database.exported" event...
         /** @noinspection PhpUndefinedMethodInspection */
         Event::fire('dfe.database.exported', [$this, $request]);
+
+        $this->info('[provisioning:database:export] instance "' . $_instance->instance_id_text . '" complete');
 
         //  The name of the file in the snapshot mount
         return $_target;
@@ -365,7 +378,7 @@ MYSQL
 
             $this->debug('dropping database "' . $databaseToDrop . '"');
 
-            return $db->transaction(function () use ($db, $databaseToDrop) {
+            return $db->transaction(function () use ($db, $databaseToDrop){
                 $_result = $db->statement('SET FOREIGN_KEY_CHECKS = 0');
                 $_result && $_result = $db->statement('DROP DATABASE `' . $databaseToDrop . '`');
                 $_result && $db->statement('SET FOREIGN_KEY_CHECKS = 1');
@@ -398,7 +411,7 @@ MYSQL
      */
     protected function grantPrivileges($db, $creds, $fromServer)
     {
-        return $db->transaction(function () use ($db, $creds, $fromServer) {
+        return $db->transaction(function () use ($db, $creds, $fromServer){
             //  Create users
             $_users = $this->getDatabaseUsers($creds, $fromServer);
 
@@ -432,7 +445,7 @@ MYSQL
      */
     protected function revokePrivileges($db, $creds, $fromServer)
     {
-        return $db->transaction(function () use ($db, $creds, $fromServer) {
+        return $db->transaction(function () use ($db, $creds, $fromServer){
             //  Create users
             $_users = $this->getDatabaseUsers($creds, $fromServer);
 
@@ -473,7 +486,7 @@ MYSQL
      */
     protected function generateDatabaseName(Instance $instance)
     {
-        return str_replace('-', '_', $instance->instance_name_text);
+        return str_replace('-', '_', strtolower($instance->instance_name_text));
     }
 
     /**

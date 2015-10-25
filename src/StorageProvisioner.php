@@ -63,6 +63,8 @@ class StorageProvisioner extends BaseStorageProvisioner implements PortableData
         $_instance = $request->getInstance();
         $_filesystem = $request->getStorage();
 
+        $this->info('[provisioning:storage] instance "' . $_instance->instance_id_text . '" begin');
+
         //******************************************************************************
         //* Directories are all relative to the request's storage file system
         //******************************************************************************
@@ -111,7 +113,7 @@ class StorageProvisioner extends BaseStorageProvisioner implements PortableData
         /** @noinspection PhpUndefinedMethodInspection */
         Event::fire('dfe.storage.provisioned', [$this, $request]);
 
-        $this->debug('Storage provisioned for instance "' . $_instance->instance_id_text . '"');
+        $this->info('[provisioning:storage] instance "' . $_instance->instance_id_text . '" complete');
 
         $this->privatePath = $_privatePath;
         $this->ownerPrivatePath = $_ownerPrivatePath;
@@ -123,6 +125,8 @@ class StorageProvisioner extends BaseStorageProvisioner implements PortableData
         $_instance = $request->getInstance();
         $_filesystem = $request->getStorage();
         $_storagePath = $_instance->instance_id_text;
+
+        $this->info('[deprovisioning:storage] instance "' . $_instance->instance_id_text . '" begin');
 
         //  I'm not sure how hard this tries to delete the directory
         if (!$_filesystem->has($_storagePath)) {
@@ -141,7 +145,7 @@ class StorageProvisioner extends BaseStorageProvisioner implements PortableData
         /** @noinspection PhpUndefinedMethodInspection */
         Event::fire('dfe.storage.deprovisioned', [$this, $request]);
 
-        $this->debug('instance "' . $_instance->instance_id_text . '"storage removed');
+        $this->info('[deprovisioning:storage] instance "' . $_instance->instance_id_text . '" complete');
 
         return true;
     }
@@ -152,6 +156,8 @@ class StorageProvisioner extends BaseStorageProvisioner implements PortableData
         $_from = null;
         $_instance = $request->getInstance();
         $_mount = $_instance->getStorageMount();
+
+        $this->info('[provisioning:storage:import] instance "' . $_instance->instance_id_text . '" begin');
 
         //  Grab the target (zip archive) and pull out the target of the import
         $_zip = $request->getTarget();
@@ -213,6 +219,8 @@ class StorageProvisioner extends BaseStorageProvisioner implements PortableData
         /** @noinspection PhpUndefinedMethodInspection */
         Event::fire('dfe.storage.imported', [$this, $request]);
 
+        $this->info('[provisioning:storage:import] instance "' . $_instance->instance_id_text . '" complete');
+
         return $_restored;
     }
 
@@ -221,6 +229,9 @@ class StorageProvisioner extends BaseStorageProvisioner implements PortableData
     {
         $_instance = $request->getInstance();
         $_mount = $_instance->getStorageMount();
+
+        $this->info('[provisioning:storage:export] instance "' . $_instance->instance_id_text . '" begin');
+
         $_tag = date('YmdHis') . '.' . $_instance->instance_id_text;
         $_workPath = $this->getWorkPath($_tag, true);
         $_target = $_tag . '.storage.zip';
@@ -236,6 +247,8 @@ class StorageProvisioner extends BaseStorageProvisioner implements PortableData
         //  Fire off a "storage.exported" event...
         /** @noinspection PhpUndefinedMethodInspection */
         Event::fire('dfe.storage.exported', [$this, $request]);
+
+        $this->info('[provisioning:storage:export] instance "' . $_instance->instance_id_text . '" complete');
 
         //  The name of the file in the snapshot mount
         return $_file;

@@ -18,7 +18,6 @@ use DreamFactory\Enterprise\Services\Exceptions\ProvisioningException;
 use DreamFactory\Enterprise\Services\Exceptions\SchemaExistsException;
 use DreamFactory\Enterprise\Services\Facades\Provision;
 use DreamFactory\Enterprise\Services\Provisioners\BaseProvisioner;
-use DreamFactory\Library\Utility\IfSet;
 use Illuminate\Contracts\Filesystem\Filesystem;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
@@ -118,7 +117,7 @@ class InstanceProvisioner extends BaseProvisioner implements OfferingsAware
      */
     protected function provisionStorage($request)
     {
-        $this->debug('>>> provisioning storage');
+        $this->info('[provisioning:storage] begin');
 
         //  Use requested file system if one...
         $_filesystem = $request->getStorage();
@@ -129,7 +128,7 @@ class InstanceProvisioner extends BaseProvisioner implements OfferingsAware
 
         $_provisioner->provision($request);
 
-        $this->debug('<<< provisioning storage - complete');
+        $this->info('[provisioning:storage] complete');
 
         return $_filesystem;
     }
@@ -141,7 +140,7 @@ class InstanceProvisioner extends BaseProvisioner implements OfferingsAware
      */
     protected function deprovisionStorage($request)
     {
-        $this->debug('>>> deprovisioning storage');
+        $this->info('[deprovisioning:storage] begin');
 
         //  Use requested file system if one...
         $_filesystem = $request->getStorage();
@@ -149,7 +148,7 @@ class InstanceProvisioner extends BaseProvisioner implements OfferingsAware
         //  Do it!
         Provision::resolveStorage($request->getInstance()->guest_location_nbr)->deprovision($request);
 
-        $this->debug('<<< deprovisioning storage - complete');
+        $this->info('[deprovisioning:storage] complete');
 
         return $_filesystem;
     }
@@ -166,9 +165,9 @@ class InstanceProvisioner extends BaseProvisioner implements OfferingsAware
 
         //	Pull the request apart
         $_instance = $request->getInstance();
-        $_name = $_instance->instance_name_text;
+        $_name = $this->sanitizeInstanceName($_instance->instance_name_text);
 
-        $this->debug('>>> provisioning instance "' . $_name . '"');
+        $this->info('[provisioning] instance "' . $_name . '" begin');
 
         $_storageProvisioner = $request->getStorageProvisioner();
         $this->setPrivatePath($_privatePath = $_storageProvisioner->getPrivatePath());
@@ -211,7 +210,7 @@ class InstanceProvisioner extends BaseProvisioner implements OfferingsAware
             $_host = $this->getFullyQualifiedDomainName($_name);
 
             /** @noinspection PhpUndefinedMethodInspection */
-            DB::transaction(function () use ($_instance, $_host) {
+            DB::transaction(function () use ($_instance, $_host){
                 /** Add guest data if there is a guest record */
                 $_instance->guest && $_instance->guest->fill([
                     'base_image_text'   => config('provisioning.base-image', ConsoleDefaults::DFE_CLUSTER_BASE_IMAGE),
@@ -231,7 +230,7 @@ class InstanceProvisioner extends BaseProvisioner implements OfferingsAware
         /** @noinspection PhpUndefinedMethodInspection */
         Event::fire('dfe.provisioned', [$this, $request, $_instance->getMetadata()]);
 
-        $this->info('<<< provisioning of instance "' . $_name . '" complete');
+        $this->info('[provisioning] instance "' . $_name . '" provisioned');
 
         return $_instance->getMetadata();
     }
@@ -245,8 +244,11 @@ class InstanceProvisioner extends BaseProvisioner implements OfferingsAware
      */
     protected function deprovisionInstance($request, $options = [])
     {
+        $_keepDatabase = array_get($options, 'keep-database', false);
         $_instance = $request->getInstance();
-        $_keepDatabase = IfSet::get($options, 'keep-database', false);
+        $_name = $_instance->instance_id_text;
+
+        $this->info('[deprovisioning] instance "' . $_name . '" begin');
 
         if ($_keepDatabase) {
             $this->notice('* "keep-database" specified. Keeping existing schema, if any.');
@@ -273,7 +275,7 @@ class InstanceProvisioner extends BaseProvisioner implements OfferingsAware
         /** @noinspection PhpUndefinedMethodInspection */
         Event::fire('dfe.deprovisioned', [$this, $request]);
 
-        $this->debug('instance row deleted from database');
+        $this->info('[deprovisioning] instance "' . $_name . '" complete');
 
         return true;
     }
@@ -293,5 +295,17 @@ class InstanceProvisioner extends BaseProvisioner implements OfferingsAware
                 trim(config('provisioning.default-dns-zone'), '. '),
                 trim(config('provisioning.default-dns-domain'), '. '),
             ]);
+    }
+
+    /**
+     * Make sure instance name is cleaned up (trimmed, lowercase, etc.)
+     *
+     * @param string $instanceName
+     *
+     * @return string
+     */
+    protected function sanitizeInstanceName($instanceName)
+    {
+        return trim(strtolower($instanceName));
     }
 }
