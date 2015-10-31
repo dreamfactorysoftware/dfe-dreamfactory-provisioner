@@ -1,2 +1,2 @@
-## DreamFactory Enterprise(tm) DreamFactory Provisioner v1.0.2
+## DreamFactory Enterprise(tm) DreamFactory Provisioner 
 This library contains a provisioner for use with DreamFactory Enterprise.
