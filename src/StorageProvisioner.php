@@ -1,8 +1,11 @@
 <?php namespace DreamFactory\Enterprise\Provisioners\DreamFactory;
 
 use DreamFactory\Enterprise\Common\Contracts\PortableData;
+use DreamFactory\Enterprise\Common\Provisioners\BaseProvisioningService;
+use DreamFactory\Enterprise\Common\Traits\Archivist;
 use DreamFactory\Enterprise\Common\Traits\Guzzler;
-use DreamFactory\Enterprise\Services\Provisioners\BaseStorageProvisioner;
+use DreamFactory\Enterprise\Common\Traits\HasPrivatePaths;
+use DreamFactory\Enterprise\Database\Traits\InstanceValidation;
 use DreamFactory\Enterprise\Storage\Facades\InstanceStorage;
 use DreamFactory\Library\Utility\Disk;
 use Illuminate\Support\Facades\Event;
@@ -35,8 +38,14 @@ use League\Flysystem\ZipArchive\ZipArchiveAdapter;
  * /data/storage/ec2.us-east-1a/33/33f58e59068f021c975a1cac49c7b6818de9df5831d89677201b9c3bd98ee1ed/bender/.private/scripts
  * /data/storage/ec2.us-east-1a/33/33f58e59068f021c975a1cac49c7b6818de9df5831d89677201b9c3bd98ee1ed/bender/.private/scripts.user
  */
-class StorageProvisioner extends BaseStorageProvisioner implements PortableData
+class StorageProvisioner extends BaseProvisioningService implements PortableData
 {
+    //******************************************************************************
+    //* Traits
+    //******************************************************************************
+
+    use Guzzler, InstanceValidation, Archivist, HasPrivatePaths;
+
     //******************************************************************************
     //* Constants
     //******************************************************************************
@@ -45,12 +54,6 @@ class StorageProvisioner extends BaseStorageProvisioner implements PortableData
      * @type string My ID!
      */
     const PROVISIONER_ID = 'dreamfactory';
-
-    //******************************************************************************
-    //* Traits
-    //******************************************************************************
-
-    use Guzzler;
 
     //******************************************************************************
     //* Methods
@@ -120,7 +123,7 @@ class StorageProvisioner extends BaseStorageProvisioner implements PortableData
     }
 
     /** @inheritdoc */
-    protected function doDeprovision($request)
+    protected function doDeprovision($request, $options = [])
     {
         $_instance = $request->getInstance();
         $_filesystem = $request->getStorage();

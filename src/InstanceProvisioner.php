@@ -4,18 +4,25 @@ use DreamFactory\Enterprise\Common\Contracts\OfferingsAware;
 use DreamFactory\Enterprise\Common\Enums\AppKeyClasses;
 use DreamFactory\Enterprise\Common\Enums\InstanceStates;
 use DreamFactory\Enterprise\Common\Enums\OperationalStates;
+use DreamFactory\Enterprise\Common\Provisioners\BaseProvisioningService;
 use DreamFactory\Enterprise\Common\Traits\EntityLookup;
 use DreamFactory\Enterprise\Common\Traits\HasOfferings;
 use DreamFactory\Enterprise\Common\Traits\HasPrivatePaths;
+use DreamFactory\Enterprise\Console\Enums\ConsoleDefaults;
 use DreamFactory\Enterprise\Database\Enums\GuestLocations;
 use DreamFactory\Enterprise\Database\Enums\OwnerTypes;
 use DreamFactory\Enterprise\Database\Enums\ProvisionStates;
 use DreamFactory\Enterprise\Database\Models\AppKey;
+use DreamFactory\Enterprise\Services\Exceptions\ProvisioningException;
+use DreamFactory\Enterprise\Services\Exceptions\SchemaExistsException;
+use DreamFactory\Enterprise\Services\Facades\Provision;
+use DreamFactory\Enterprise\Services\Provisioners\ProvisionServiceRequest;
+use DreamFactory\Enterprise\Services\Provisioners\ProvisionServiceResponse;
 use Illuminate\Contracts\Filesystem\Filesystem;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
 
-class InstanceProvisioner extends BaseProvisioner implements OfferingsAware
+class InstanceProvisioner extends BaseProvisioningService implements OfferingsAware
 {
     //******************************************************************************
     //* Constants
@@ -36,7 +43,12 @@ class InstanceProvisioner extends BaseProvisioner implements OfferingsAware
     //* Methods
     //******************************************************************************
 
-    /** @inheritdoc */
+    /**
+     * @param ProvisionServiceRequest $request
+     *
+     * @return ProvisionServiceResponse
+     * @throws ProvisioningException
+     */
     protected function doProvision($request)
     {
         $_output = [];
@@ -78,7 +90,12 @@ class InstanceProvisioner extends BaseProvisioner implements OfferingsAware
             $_output);
     }
 
-    /** @inheritdoc */
+    /**
+     * @param ProvisionServiceRequest $request
+     * @param array                   $options
+     *
+     * @return \DreamFactory\Enterprise\Services\Provisioners\ProvisionServiceResponse
+     */
     protected function doDeprovision($request, $options = [])
     {
         $_output = [];
