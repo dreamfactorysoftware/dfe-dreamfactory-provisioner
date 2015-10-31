@@ -1,6 +1,7 @@
 log/
 .idea/workspace.xml
 .idea/tasks.xml
+.idea/composerJson.xml
 vendor/
 tests/vendor/
 tests/log/
