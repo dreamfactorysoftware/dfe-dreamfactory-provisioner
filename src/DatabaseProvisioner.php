@@ -1,12 +1,14 @@
 <?php namespace DreamFactory\Enterprise\Provisioners\DreamFactory;
 
 use DreamFactory\Enterprise\Common\Contracts\PortableData;
+use DreamFactory\Enterprise\Common\Provisioners\BaseProvisioningService;
 use DreamFactory\Enterprise\Common\Traits\Archivist;
 use DreamFactory\Enterprise\Common\Traits\EntityLookup;
+use DreamFactory\Enterprise\Common\Traits\HasPrivatePaths;
 use DreamFactory\Enterprise\Database\Models\Instance;
+use DreamFactory\Enterprise\Database\Traits\InstanceValidation;
 use DreamFactory\Enterprise\Services\Exceptions\ProvisioningException;
 use DreamFactory\Enterprise\Services\Exceptions\SchemaExistsException;
-use DreamFactory\Enterprise\Services\Provisioners\BaseDatabaseProvisioner;
 use DreamFactory\Library\Utility\Disk;
 use DreamFactory\Library\Utility\Json;
 use Illuminate\Database\Connection;
@@ -14,13 +16,13 @@ use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
 
-class DatabaseProvisioner extends BaseDatabaseProvisioner implements PortableData
+class DatabaseProvisioner extends BaseProvisioningService implements PortableData
 {
     //******************************************************************************
     //* Traits
     //******************************************************************************
 
-    use Archivist, EntityLookup;
+    use Archivist, EntityLookup, InstanceValidation, HasPrivatePaths;
 
     //******************************************************************************
     //* Methods
@@ -92,7 +94,7 @@ class DatabaseProvisioner extends BaseDatabaseProvisioner implements PortableDat
     }
 
     /** @inheritdoc */
-    protected function doDeprovision($request)
+    protected function doDeprovision($request, $options = [])
     {
         $_instance = $request->getInstance();
 

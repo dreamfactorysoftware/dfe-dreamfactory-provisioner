@@ -29,6 +29,26 @@
     {
       "type": "vcs",
       "url":  "https://github.com/dreamfactorysoftware/dfe-common.git"
+    },
+    {
+      "type": "vcs",
+      "url":  "https://github.com/dreamfactorysoftware/dfe-console.git"
+    },
+    {
+      "type": "vcs",
+      "url":  "https://github.com/dreamfactorysoftware/dfe-audit.git"
+    },
+    {
+      "type": "vcs",
+      "url":  "https://github.com/dreamfactorysoftware/dfe-partner.git"
+    },
+    {
+      "type": "vcs",
+      "url":  "https://github.com/dreamfactorysoftware/dfe-api-client.git"
+    },
+    {
+      "type": "vcs",
+      "url":  "https://github.com/dreamfactorysoftware/dfe-ops-client.git"
     }
   ],
   "minimum-stability": "dev",
@@ -43,6 +63,7 @@
     "dreamfactory/dfe-common":               "1.0.*"
   },
   "require-dev":       {
+    "dreamfactory/dfe-console":  "dev-develop as dev-master",
     "laravel/framework":         "5.1.*",
     "guzzlehttp/guzzle":         "~4.0",
     "wpb/string-blade-compiler": "2.*@dev",
