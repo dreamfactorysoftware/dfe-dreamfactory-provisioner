@@ -1,34 +1,39 @@
 <?php namespace DreamFactory\Enterprise\Provisioners\DreamFactory;
 
 use DreamFactory\Enterprise\Common\Contracts\PortableData;
-use DreamFactory\Enterprise\Common\Provisioners\BaseProvisioningService;
-use DreamFactory\Enterprise\Common\Traits\Archivist;
+use DreamFactory\Enterprise\Common\Provisioners\BaseDatabaseProvisioner;
 use DreamFactory\Enterprise\Common\Traits\EntityLookup;
 use DreamFactory\Enterprise\Common\Traits\HasPrivatePaths;
 use DreamFactory\Enterprise\Database\Models\Instance;
 use DreamFactory\Enterprise\Database\Traits\InstanceValidation;
 use DreamFactory\Enterprise\Services\Exceptions\ProvisioningException;
 use DreamFactory\Enterprise\Services\Exceptions\SchemaExistsException;
+use DreamFactory\Enterprise\Services\Provisioners\ProvisionServiceRequest;
 use DreamFactory\Library\Utility\Disk;
 use DreamFactory\Library\Utility\Json;
 use Illuminate\Database\Connection;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Event;
 
-class DatabaseProvisioner extends BaseProvisioningService implements PortableData
+class DatabaseProvisioner extends BaseDatabaseProvisioner implements PortableData
 {
     //******************************************************************************
     //* Traits
     //******************************************************************************
 
-    use Archivist, EntityLookup, InstanceValidation, HasPrivatePaths;
+    use EntityLookup, InstanceValidation, HasPrivatePaths;
 
     //******************************************************************************
     //* Methods
     //******************************************************************************
 
-    /** @inheritdoc */
+    /**
+     * @param ProvisionServiceRequest $request
+     *
+     * @return array|bool
+     * @throws \DreamFactory\Enterprise\Services\Exceptions\ProvisioningException
+     * @throws \DreamFactory\Enterprise\Services\Exceptions\SchemaExistsException
+     */
     protected function doProvision($request)
     {
         $_instance = $request->getInstance();
@@ -47,7 +52,7 @@ class DatabaseProvisioner extends BaseProvisioningService implements PortableDat
         //  1. Create a random user and password for the instance
         $_creds = $this->generateSchemaCredentials($_instance);
 
-        $this->debug('* instance database "' . $_creds['database'] . '" assigned');
+        $this->debug('[provisioning:database] instance database "' . $_creds['database'] . '" assigned');
 
         try {
             //	1. Create database
@@ -85,15 +90,19 @@ class DatabaseProvisioner extends BaseProvisioningService implements PortableDat
         }
 
         //  Fire off a "database.provisioned" event...
-        /** @noinspection PhpUndefinedMethodInspection */
-        Event::fire('dfe.database.provisioned', [$this, $request]);
+        \Event::fire('dfe.database.provisioned', [$this, $request]);
 
         $this->info('[provisioning:database] instance "' . $_instance->instance_id_text . '" complete');
 
         return array_merge($_rootConfig, $_creds);
     }
 
-    /** @inheritdoc */
+    /**
+     * @param ProvisionServiceRequest $request
+     * @param array                   $options
+     *
+     * @return bool
+     */
     protected function doDeprovision($request, $options = [])
     {
         $_instance = $request->getInstance();
@@ -118,8 +127,7 @@ class DatabaseProvisioner extends BaseProvisioningService implements PortableDat
         }
 
         //  Fire off a "database.deprovisioned" event...
-        /** @noinspection PhpUndefinedMethodInspection */
-        Event::fire('dfe.database.deprovisioned', [$this, $request]);
+        \Event::fire('dfe.database.deprovisioned', [$this, $request]);
 
         $this->info('[deprovisioning:database] instance "' . $_instance->instance_id_text . '" complete');
 
@@ -172,8 +180,7 @@ class DatabaseProvisioner extends BaseProvisioningService implements PortableDat
         unlink($_from);
 
         //  Fire off a "database.imported" event...
-        /** @noinspection PhpUndefinedMethodInspection */
-        Event::fire('dfe.database.imported', [$this, $request]);
+        \Event::fire('dfe.database.imported', [$this, $request]);
 
         $this->info('[provisioning:database:import] instance "' . $_instance->instance_id_text . '" complete');
 
@@ -223,8 +230,7 @@ class DatabaseProvisioner extends BaseProvisioningService implements PortableDat
         $this->deleteWorkPath($_tag);
 
         //  Fire off a "database.exported" event...
-        /** @noinspection PhpUndefinedMethodInspection */
-        Event::fire('dfe.database.exported', [$this, $request]);
+        \Event::fire('dfe.database.exported', [$this, $request]);
 
         $this->info('[provisioning:database:export] instance "' . $_instance->instance_id_text . '" complete');
 
@@ -358,7 +364,7 @@ CREATE DATABASE IF NOT EXISTS `{$_dbName}`
 MYSQL
             );
         } catch (\Exception $_ex) {
-            $this->error('* create database - failure: ' . $_ex->getMessage());
+            $this->error('[provisioning:database] create database - failure: ' . $_ex->getMessage());
 
             return false;
         }
@@ -378,13 +384,13 @@ MYSQL
                 return true;
             }
 
-            $this->debug('dropping database "' . $databaseToDrop . '"');
+            $this->debug('[provisioning:database] dropping database "' . $databaseToDrop . '"');
 
             return $db->transaction(function () use ($db, $databaseToDrop){
                 $_result = $db->statement('SET FOREIGN_KEY_CHECKS = 0');
                 $_result && $_result = $db->statement('DROP DATABASE `' . $databaseToDrop . '`');
                 $_result && $db->statement('SET FOREIGN_KEY_CHECKS = 1');
-                $this->debug('database "' . $databaseToDrop . '" dropped.');
+                $this->debug('[provisioning:database] database "' . $databaseToDrop . '" dropped.');
 
                 return $_result;
             });
@@ -393,12 +399,12 @@ MYSQL
 
             //  If the database is already gone, don't cause an error, but note it.
             if (false !== stripos($_message, 'general error: 1008')) {
-                $this->info('* drop database - not performed. database does not exist.');
+                $this->info('[provisioning:database] drop database - not performed. database does not exist.');
 
                 return true;
             }
 
-            $this->error('* drop database - failure: ' . $_message);
+            $this->error('[provisioning:database] drop database - failure: ' . $_message);
 
             return false;
         }
@@ -431,7 +437,7 @@ MYSQL
                 //	Grants for instance database
                 return true;
             } catch (\Exception $_ex) {
-                $this->error('* issue grants - failure: ' . $_ex->getMessage());
+                $this->error('[provisioning:database] issue grants - failure: ' . $_ex->getMessage());
 
                 return false;
             }
@@ -457,22 +463,22 @@ MYSQL
                     if (!($_result =
                         $db->statement('REVOKE ALL PRIVILEGES ON ' . $creds['database'] . '.* FROM ' . $_user))
                     ) {
-                        $this->error('* error revoking privileges from "' . $_user . '"');
+                        $this->error('[provisioning:database] error revoking privileges from "' . $_user . '"');
                         continue;
                     }
 
-                    $this->debug('grants revoked - complete');
+                    $this->debug('[provisioning:database] grants revoked - complete');
 
                     if (!($_result = $db->statement('DROP USER ' . $_user))) {
-                        $this->error('* error dropping user "' . $_user . '"');
+                        $this->error('[provisioning:database] error dropping user "' . $_user . '"');
                     }
 
-                    $_result && $this->debug('users dropped > ', $_users);
+                    $_result && $this->debug('[provisioning:database] users dropped > ', $_users);
                 }
 
                 return true;
             } catch (\Exception $_ex) {
-                $this->error('revoke grants - failure: ' . $_ex->getMessage());
+                $this->error('[provisioning:database] revoke grants - failure: ' . $_ex->getMessage());
 
                 return false;
             }
@@ -535,12 +541,13 @@ MYSQL
 
         $_command = str_replace('{:options}', implode(' ', $_options), $_template);
 
-        logger('Import command: ' . $_command);
-
         exec($_command, $_output, $_return);
 
         if (0 != $_return) {
-            $this->error('Error while importing database of instance id "' . $instance->instance_id_text . '".');
+            $this->error('[provisioning:database] error importing database of instance id "' .
+                $instance->instance_id_text .
+                '".',
+                ['output' => $_output, 'command' => $_command, 'return' => $_return]);
 
             return false;
         }
