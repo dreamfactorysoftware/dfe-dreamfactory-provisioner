@@ -218,7 +218,7 @@ class InstanceProvisioner extends BaseInstanceProvisioner implements OfferingsAw
             $_host = $this->getFullyQualifiedDomainName($_name);
 
             /** @noinspection PhpUndefinedMethodInspection */
-            DB::transaction(function () use ($_instance, $_host){
+            DB::transaction(function () use ($_instance, $_host) {
                 /** Add guest data if there is a guest record */
                 $_instance->guest && $_instance->guest->fill([
                     'base_image_text'   => config('provisioning.base-image', ConsoleDefaults::DFE_CLUSTER_BASE_IMAGE),

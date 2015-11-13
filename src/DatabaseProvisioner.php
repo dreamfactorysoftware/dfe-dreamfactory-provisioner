@@ -3,7 +3,6 @@
 use DreamFactory\Enterprise\Common\Contracts\PortableData;
 use DreamFactory\Enterprise\Common\Provisioners\BaseDatabaseProvisioner;
 use DreamFactory\Enterprise\Common\Traits\EntityLookup;
-use DreamFactory\Enterprise\Common\Traits\HasPrivatePaths;
 use DreamFactory\Enterprise\Database\Models\Instance;
 use DreamFactory\Enterprise\Database\Traits\InstanceValidation;
 use DreamFactory\Enterprise\Services\Exceptions\ProvisioningException;
@@ -21,7 +20,7 @@ class DatabaseProvisioner extends BaseDatabaseProvisioner implements PortableDat
     //* Traits
     //******************************************************************************
 
-    use EntityLookup, InstanceValidation, HasPrivatePaths;
+    use EntityLookup;
 
     //******************************************************************************
     //* Methods
@@ -386,7 +385,7 @@ MYSQL
 
             $this->debug('[provisioning:database] dropping database "' . $databaseToDrop . '"');
 
-            return $db->transaction(function () use ($db, $databaseToDrop){
+            return $db->transaction(function () use ($db, $databaseToDrop) {
                 $_result = $db->statement('SET FOREIGN_KEY_CHECKS = 0');
                 $_result && $_result = $db->statement('DROP DATABASE `' . $databaseToDrop . '`');
                 $_result && $db->statement('SET FOREIGN_KEY_CHECKS = 1');
@@ -419,7 +418,7 @@ MYSQL
      */
     protected function grantPrivileges($db, $creds, $fromServer)
     {
-        return $db->transaction(function () use ($db, $creds, $fromServer){
+        return $db->transaction(function () use ($db, $creds, $fromServer) {
             //  Create users
             $_users = $this->getDatabaseUsers($creds, $fromServer);
 
@@ -453,7 +452,7 @@ MYSQL
      */
     protected function revokePrivileges($db, $creds, $fromServer)
     {
-        return $db->transaction(function () use ($db, $creds, $fromServer){
+        return $db->transaction(function () use ($db, $creds, $fromServer) {
             //  Create users
             $_users = $this->getDatabaseUsers($creds, $fromServer);
 
