@@ -1,14 +1,10 @@
 <?php namespace DreamFactory\Enterprise\Provisioners\DreamFactory;
 
 use DreamFactory\Enterprise\Common\Contracts\PortableData;
-use DreamFactory\Enterprise\Common\Provisioners\BaseProvisioningService;
-use DreamFactory\Enterprise\Common\Traits\Archivist;
-use DreamFactory\Enterprise\Common\Traits\Guzzler;
-use DreamFactory\Enterprise\Common\Traits\HasPrivatePaths;
-use DreamFactory\Enterprise\Database\Traits\InstanceValidation;
+use DreamFactory\Enterprise\Common\Provisioners\BaseStorageProvisioner;
+use DreamFactory\Enterprise\Services\Provisioners\ProvisionServiceRequest;
 use DreamFactory\Enterprise\Storage\Facades\InstanceStorage;
 use DreamFactory\Library\Utility\Disk;
-use Illuminate\Support\Facades\Event;
 use League\Flysystem\Filesystem;
 use League\Flysystem\ZipArchive\ZipArchiveAdapter;
 
@@ -38,14 +34,8 @@ use League\Flysystem\ZipArchive\ZipArchiveAdapter;
  * /data/storage/ec2.us-east-1a/33/33f58e59068f021c975a1cac49c7b6818de9df5831d89677201b9c3bd98ee1ed/bender/.private/scripts
  * /data/storage/ec2.us-east-1a/33/33f58e59068f021c975a1cac49c7b6818de9df5831d89677201b9c3bd98ee1ed/bender/.private/scripts.user
  */
-class StorageProvisioner extends BaseProvisioningService implements PortableData
+class StorageProvisioner extends BaseStorageProvisioner implements PortableData
 {
-    //******************************************************************************
-    //* Traits
-    //******************************************************************************
-
-    use Guzzler, InstanceValidation, Archivist, HasPrivatePaths;
-
     //******************************************************************************
     //* Constants
     //******************************************************************************
@@ -59,14 +49,18 @@ class StorageProvisioner extends BaseProvisioningService implements PortableData
     //* Methods
     //******************************************************************************
 
-    /**@inheritdoc */
+    /**
+     * @param ProvisionServiceRequest $request
+     *
+     * @return \DreamFactory\Enterprise\Common\Provisioners\BaseResponse|void
+     * @throws \Exception
+     */
     protected function doProvision($request)
     {
         //  Wipe existing stuff
         $_instance = $request->getInstance();
         $_filesystem = $request->getStorage();
-
-        $this->info('[provisioning:storage] instance "' . $_instance->instance_id_text . '" begin');
+        $_paths = [];
 
         //******************************************************************************
         //* Directories are all relative to the request's storage file system
@@ -82,39 +76,34 @@ class StorageProvisioner extends BaseProvisioningService implements PortableData
 
         //  Make sure everything exists
         try {
-            logger('* private path: ' . $_privatePath);
             !$_filesystem->has($_privatePath) && $_filesystem->createDir($_privatePath);
-
-            logger('* owner private path: ' . $_ownerPrivatePath);
             !$_filesystem->has($_ownerPrivatePath) && $_filesystem->createDir($_ownerPrivatePath);
 
             //  Now ancillary sub-directories
             foreach (config('provisioning.public-paths', []) as $_path) {
-                $_path = Disk::segment([$_instanceRootPath, $_path]);
-                logger('* public path: ' . $_path);
-                !$_filesystem->has($_path) && $_filesystem->createDir($_path);
+                $_paths[] = Disk::segment([$_instanceRootPath, $_path]);
             }
 
             foreach (config('provisioning.private-paths', []) as $_path) {
-                $_path = Disk::segment([$_privatePath, $_path]);
-                logger('* private path: ' . $_path);
-                !$_filesystem->has($_path) && $_filesystem->createDir($_path);
+                $_paths[] = Disk::segment([$_privatePath, $_path]);
             }
 
             foreach (config('provisioning.owner-private-paths', []) as $_path) {
-                $_path = Disk::segment([$_ownerPrivatePath, $_path]);
-                logger('* owner private path: ' . $_path);
+                $_paths[] = Disk::segment([$_ownerPrivatePath, $_path]);
+            }
+
+            foreach ($_paths as $_path) {
                 !$_filesystem->has($_path) && $_filesystem->createDir($_path);
             }
+
+            $this->debug('[provisioning:storage] structure built', $_paths);
         } catch (\Exception $_ex) {
-            $this->error('! error creating directory structure: ' . $_ex->getMessage());
-            logger('File system: ' . print_r($_filesystem, true));
+            $this->error('[provisioning:storage] error creating directory structure: ' . $_ex->getMessage());
             throw $_ex;
         }
 
         //  Fire off a "storage.provisioned" event...
-        /** @noinspection PhpUndefinedMethodInspection */
-        Event::fire('dfe.storage.provisioned', [$this, $request]);
+        \Event::fire('dfe.storage.provisioned', [$this, $request]);
 
         $this->info('[provisioning:storage] instance "' . $_instance->instance_id_text . '" complete');
 
@@ -122,7 +111,14 @@ class StorageProvisioner extends BaseProvisioningService implements PortableData
         $this->ownerPrivatePath = $_ownerPrivatePath;
     }
 
-    /** @inheritdoc */
+    /**
+     * Deprovision an instance
+     *
+     * @param ProvisionServiceRequest $request
+     * @param array                   $options
+     *
+     * @return bool
+     */
     protected function doDeprovision($request, $options = [])
     {
         $_instance = $request->getInstance();
@@ -133,20 +129,21 @@ class StorageProvisioner extends BaseProvisioningService implements PortableData
 
         //  I'm not sure how hard this tries to delete the directory
         if (!$_filesystem->has($_storagePath)) {
-            $this->notice('! unable to stat storage path "' . $_storagePath . '". not deleting!');
+            $this->notice('[deprovisioning:storage] unable to stat storage path "' .
+                $_storagePath .
+                '". not deleting!');
 
             return false;
         }
 
         if (!$_filesystem->deleteDir($_storagePath)) {
-            $this->error('! error deleting storage area "' . $_storagePath . '"');
+            $this->error('[deprovisioning:storage] error deleting storage area "' . $_storagePath . '"');
 
             return false;
         }
 
         //  Fire off a "storage.deprovisioned" event...
-        /** @noinspection PhpUndefinedMethodInspection */
-        Event::fire('dfe.storage.deprovisioned', [$this, $request]);
+        \Event::fire('dfe.storage.deprovisioned', [$this, $request]);
 
         $this->info('[deprovisioning:storage] instance "' . $_instance->instance_id_text . '" complete');
 
@@ -219,8 +216,7 @@ class StorageProvisioner extends BaseProvisioningService implements PortableData
         $_path && is_dir(dirname($_path)) && Disk::deleteTree(dirname($_path));
 
         //  Fire off a "storage.imported" event...
-        /** @noinspection PhpUndefinedMethodInspection */
-        Event::fire('dfe.storage.imported', [$this, $request]);
+        \Event::fire('dfe.storage.imported', [$this, $request]);
 
         $this->info('[provisioning:storage:import] instance "' . $_instance->instance_id_text . '" complete');
 
@@ -248,8 +244,7 @@ class StorageProvisioner extends BaseProvisioningService implements PortableData
         !$request->get('keep-work', false) && $this->deleteWorkPath($_tag);
 
         //  Fire off a "storage.exported" event...
-        /** @noinspection PhpUndefinedMethodInspection */
-        Event::fire('dfe.storage.exported', [$this, $request]);
+        \Event::fire('dfe.storage.exported', [$this, $request]);
 
         $this->info('[provisioning:storage:export] instance "' . $_instance->instance_id_text . '" complete');
 

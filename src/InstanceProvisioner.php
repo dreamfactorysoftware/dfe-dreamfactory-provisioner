@@ -4,8 +4,7 @@ use DreamFactory\Enterprise\Common\Contracts\OfferingsAware;
 use DreamFactory\Enterprise\Common\Enums\AppKeyClasses;
 use DreamFactory\Enterprise\Common\Enums\InstanceStates;
 use DreamFactory\Enterprise\Common\Enums\OperationalStates;
-use DreamFactory\Enterprise\Common\Provisioners\BaseProvisioningService;
-use DreamFactory\Enterprise\Common\Traits\EntityLookup;
+use DreamFactory\Enterprise\Common\Provisioners\BaseInstanceProvisioner;
 use DreamFactory\Enterprise\Common\Traits\HasOfferings;
 use DreamFactory\Enterprise\Common\Traits\HasPrivatePaths;
 use DreamFactory\Enterprise\Console\Enums\ConsoleDefaults;
@@ -20,9 +19,8 @@ use DreamFactory\Enterprise\Services\Provisioners\ProvisionServiceRequest;
 use DreamFactory\Enterprise\Services\Provisioners\ProvisionServiceResponse;
 use Illuminate\Contracts\Filesystem\Filesystem;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Event;
 
-class InstanceProvisioner extends BaseProvisioningService implements OfferingsAware
+class InstanceProvisioner extends BaseInstanceProvisioner implements OfferingsAware
 {
     //******************************************************************************
     //* Constants
@@ -37,7 +35,7 @@ class InstanceProvisioner extends BaseProvisioningService implements OfferingsAw
     //* Traits
     //******************************************************************************
 
-    use EntityLookup, HasPrivatePaths, HasOfferings;
+    use HasOfferings, HasPrivatePaths;
 
     //******************************************************************************
     //* Methods
@@ -67,7 +65,7 @@ class InstanceProvisioner extends BaseProvisioningService implements OfferingsAw
             $_instance = $_instance->fresh();
             $_success = true;
         } catch (\Exception $_ex) {
-            $this->error('* exception: ' . $_ex->getMessage());
+            $this->error('[provisioning] exception: ' . $_ex->getMessage());
 
             $_instance->updateState(ProvisionStates::PROVISIONING_ERROR);
 
@@ -77,7 +75,7 @@ class InstanceProvisioner extends BaseProvisioningService implements OfferingsAw
             $this->deprovisionStorage($request);
 
             if (!$this->deprovisionInstance($request, ['keep-database' => ($_ex instanceof SchemaExistsException)])) {
-                $this->error('* unable to remove instance "' .
+                $this->error('[provisioning] unable to remove instance "' .
                     $_instance->instance_id_text .
                     '" after failed provision.');
             }
@@ -233,14 +231,13 @@ class InstanceProvisioner extends BaseProvisioningService implements OfferingsAw
                 $_instance->save();
             });
         } catch (\Exception $_ex) {
-            throw new \RuntimeException('Error updating instance data: ' . $_ex->getMessage());
+            throw new \RuntimeException('[provisioning:instance] error updating instance data: ' . $_ex->getMessage());
         }
 
         //  Fire off a "provisioned" event...
-        /** @noinspection PhpUndefinedMethodInspection */
-        Event::fire('dfe.provisioned', [$this, $request, $_instance->getMetadata()]);
+        \Event::fire('dfe.provisioned', [$this, $request, $_instance->getMetadata()]);
 
-        $this->info('[provisioning] instance "' . $_name . '" provisioned');
+        $this->info('[provisioning:instance] instance "' . $_name . '" provisioned');
 
         return $_instance->getMetadata();
     }
@@ -258,10 +255,10 @@ class InstanceProvisioner extends BaseProvisioningService implements OfferingsAw
         $_instance = $request->getInstance();
         $_name = $_instance->instance_id_text;
 
-        $this->info('[deprovisioning] instance "' . $_name . '" begin');
+        $this->info('[deprovisioning:instance] instance "' . $_name . '" begin');
 
         if ($_keepDatabase) {
-            $this->notice('* "keep-database" specified. Keeping existing schema, if any.');
+            $this->info('[deprovisioning:instance] "keep-database" specified. Keeping existing schema, if any.');
         } else {
             //	Deprovision the database
             $_dbService = Provision::getDatabaseProvisioner($_instance->guest_location_nbr);
@@ -276,16 +273,15 @@ class InstanceProvisioner extends BaseProvisioningService implements OfferingsAw
                 throw new \RuntimeException('Instance row deletion failed.');
             }
         } catch (\Exception $_ex) {
-            $this->error('* exception while deleting instance row: ' . $_ex->getMessage());
+            $this->error('[deprovisioning:instance] exception while deleting instance row: ' . $_ex->getMessage());
 
             return false;
         }
 
-        //  Fire off a "shutdown" event...
-        /** @noinspection PhpUndefinedMethodInspection */
-        Event::fire('dfe.deprovisioned', [$this, $request]);
+        //  Fire off a "deprovisioned" event...
+        \Event::fire('dfe.deprovisioned', [$this, $request]);
 
-        $this->info('[deprovisioning] instance "' . $_name . '" complete');
+        $this->info('[deprovisioning:instance] instance "' . $_name . '" complete');
 
         return true;
     }
