@@ -3,6 +3,7 @@
 use DreamFactory\Enterprise\Common\Contracts\PortableData;
 use DreamFactory\Enterprise\Common\Provisioners\BaseDatabaseProvisioner;
 use DreamFactory\Enterprise\Common\Traits\EntityLookup;
+use DreamFactory\Enterprise\Database\Exceptions\DatabaseException;
 use DreamFactory\Enterprise\Database\Models\Instance;
 use DreamFactory\Enterprise\Database\Traits\InstanceValidation;
 use DreamFactory\Enterprise\Services\Exceptions\ProvisioningException;
@@ -244,17 +245,6 @@ class DatabaseProvisioner extends BaseDatabaseProvisioner implements PortableDat
      */
     protected function getRootDatabaseConnection(Instance $instance)
     {
-        static $_skeleton = [
-            'host'      => 'localhost',
-            'port'      => '3306',
-            'database'  => 'dfe_local',
-            'username'  => 'dfe_user',
-            'password'  => 'dfe_user',
-            'charset'   => 'utf8',
-            'collation' => 'utf8_unicode_ci',
-            'prefix'    => '',
-        ];
-
         //  Let's go!
         $_dbServerId = $instance->db_server_id;
 
@@ -272,12 +262,9 @@ class DatabaseProvisioner extends BaseDatabaseProvisioner implements PortableDat
         //  Get the REAL server name
         $_dbServer = $_server->server_id_text;
 
-        //  Build the config
-        $_config =
-            array_merge(is_scalar($_server->config_text) ? Json::decode($_server->config_text, true)
-                : (array)$_server->config_text,
-                $_skeleton,
-                ['db-server-id' => $_dbServer,]);
+        //  Build the config, favoring database creds
+        $_config = config('database.connections.' . config('database.default'), []);
+        $_config = array_merge($_config, $_server->config_text, ['db-server-id' => $_dbServerId]);
 
         //  Sanity Checks
         if (empty($_config)) {
@@ -288,13 +275,11 @@ class DatabaseProvisioner extends BaseDatabaseProvisioner implements PortableDat
         config(['database.connections.' . $_server->server_id_text => $_config]);
 
         //  Create a connection and return. It's in Joe Pesce's hands now...
-        /** @noinspection PhpUndefinedMethodInspection */
-
-        return [DB::connection($_dbServer), $_config, $_server];
+        return [\DB::connection($_dbServer), $_config, $_server];
     }
 
     /**
-     * Generates a unique dbname/user/pass for MySQL for an instance
+     * Generates a unique db-name/user/pass for MySQL for an instance
      *
      * @param Instance $instance
      *
@@ -358,10 +343,15 @@ class DatabaseProvisioner extends BaseDatabaseProvisioner implements PortableDat
         try {
             $_dbName = $creds['database'];
 
-            return $db->statement(<<<MYSQL
+            if (false === $db->statement(<<<MYSQL
 CREATE DATABASE IF NOT EXISTS `{$_dbName}`
 MYSQL
-            );
+                )
+            ) {
+                throw new DatabaseException(json_encode($db->getPdo()->errorInfo()));
+            }
+
+            return true;
         } catch (\Exception $_ex) {
             $this->error('[provisioning:database] create database - failure: ' . $_ex->getMessage());
 

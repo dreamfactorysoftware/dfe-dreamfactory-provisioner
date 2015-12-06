@@ -1,85 +1,89 @@
 {
-  "name":              "dreamfactory/dfe-dreamfactory-provisioner",
-  "description":       "DreamFactory Enterprise(tm) DreamFactory Provisioner",
-  "homepage":          "https://www.dreamfactory.com/",
-  "keywords":          [
-    "dreamfactory",
-    "dfe",
-    "instance",
-    "provisioner"
-  ],
-  "license":           [
-    "proprietary"
-  ],
-  "authors":           [
-    {
-      "name":  "Jerry Ablan",
-      "email": "jerryablan@dreamfactory.com"
-    }
-  ],
-  "repositories":      [
-    {
-      "type": "vcs",
-      "url":  "https://github.com/dreamfactorysoftware/dfe-database.git"
-    },
-    {
-      "type": "vcs",
-      "url":  "https://github.com/dreamfactorysoftware/dfe-storage.git"
-    },
-    {
-      "type": "vcs",
-      "url":  "https://github.com/dreamfactorysoftware/dfe-common.git"
-    },
-    {
-      "type": "vcs",
-      "url":  "https://github.com/dreamfactorysoftware/dfe-console.git"
-    },
-    {
-      "type": "vcs",
-      "url":  "https://github.com/dreamfactorysoftware/dfe-audit.git"
-    },
-    {
-      "type": "vcs",
-      "url":  "https://github.com/dreamfactorysoftware/dfe-partner.git"
-    },
-    {
-      "type": "vcs",
-      "url":  "https://github.com/dreamfactorysoftware/dfe-api-client.git"
-    },
-    {
-      "type": "vcs",
-      "url":  "https://github.com/dreamfactorysoftware/dfe-ops-client.git"
-    }
-  ],
-  "minimum-stability": "dev",
-  "require":           {
-    "graham-campbell/flysystem":             "~3.0",
-    "league/flysystem-sftp":                 "~1.0",
-    "league/flysystem-ziparchive":           "~1.0",
-    "league/flysystem-eventable-filesystem": "~1.0",
-    "dreamfactory/php-utils":                "1.1.*",
-    "dreamfactory/dfe-storage":              "1.0.*",
-    "dreamfactory/dfe-database":             "1.0.*",
-    "dreamfactory/dfe-common":               "1.0.*"
-  },
-  "require-dev":       {
-    "dreamfactory/dfe-console":  "dev-develop as dev-master",
-    "laravel/framework":         "5.1.*",
-    "guzzlehttp/guzzle":         "~4.0",
-    "wpb/string-blade-compiler": "2.*@dev",
-    "phpunit/phpunit":           "@stable"
-  },
-  "autoload":          {
-    "psr-4": {
-      "DreamFactory\\Enterprise\\Provisioners\\DreamFactory\\": "src/"
-    }
-  },
-  "config":            {
-    "preferred-install": "dist"
-  },
-  "extra":             {
-    "branch-alias": {
-      "dev-develop": "1.0.x-dev"
-    }
-  }
+	"name":              "dreamfactory/dfe-dreamfactory-provisioner",
+	"description":       "DreamFactory Enterprise(tm) DreamFactory Provisioner",
+	"homepage":          "https://www.dreamfactory.com/",
+	"keywords":          [
+		"dreamfactory",
+		"dfe",
+		"instance",
+		"provisioner"
+	],
+	"license":           [
+		"proprietary"
+	],
+	"authors":           [
+		{
+			"name":  "Jerry Ablan",
+			"email": "jerryablan@dreamfactory.com"
+		}
+	],
+	"repositories":      [
+		{
+			"type": "vcs",
+			"url":  "https://github.com/dreamfactorysoftware/dfe-database.git"
+		},
+		{
+			"type": "vcs",
+			"url":  "https://github.com/dreamfactorysoftware/dfe-capsule.git"
+		},
+		{
+			"type": "vcs",
+			"url":  "https://github.com/dreamfactorysoftware/dfe-storage.git"
+		},
+		{
+			"type": "vcs",
+			"url":  "https://github.com/dreamfactorysoftware/dfe-common.git"
+		},
+		{
+			"type": "vcs",
+			"url":  "https://github.com/dreamfactorysoftware/dfe-console.git"
+		},
+		{
+			"type": "vcs",
+			"url":  "https://github.com/dreamfactorysoftware/dfe-audit.git"
+		},
+		{
+			"type": "vcs",
+			"url":  "https://github.com/dreamfactorysoftware/dfe-partner.git"
+		},
+		{
+			"type": "vcs",
+			"url":  "https://github.com/dreamfactorysoftware/dfe-api-client.git"
+		},
+		{
+			"type": "vcs",
+			"url":  "https://github.com/dreamfactorysoftware/dfe-ops-client.git"
+		}
+	],
+	"minimum-stability": "dev",
+	"require":           {
+		"graham-campbell/flysystem":             "~3.0",
+		"league/flysystem-sftp":                 "~1.0",
+		"league/flysystem-ziparchive":           "~1.0",
+		"league/flysystem-eventable-filesystem": "~1.0",
+		"dreamfactory/php-utils":                "1.1.*",
+		"dreamfactory/dfe-storage":              "1.0.*",
+		"dreamfactory/dfe-database":             "1.0.*",
+		"dreamfactory/dfe-common":               "1.0.*"
+	},
+	"require-dev":       {
+		"dreamfactory/dfe-console":  "dev-develop as dev-master",
+		"laravel/framework":         "5.1.*",
+		"guzzlehttp/guzzle":         "~4.0",
+		"wpb/string-blade-compiler": "2.*@dev",
+		"phpunit/phpunit":           "@stable"
+	},
+	"autoload":          {
+		"psr-4": {
+			"DreamFactory\\Enterprise\\Provisioners\\DreamFactory\\": "src/"
+		}
+	},
+	"config":            {
+		"preferred-install": "dist"
+	},
+	"extra":             {
+		"branch-alias": {
+			"dev-develop": "1.0.x-dev"
+		}
+	}
 }
