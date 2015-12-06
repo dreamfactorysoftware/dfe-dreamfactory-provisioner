@@ -3,7 +3,6 @@
   <component name="ComposerJsonPluginSettings">
     <unboundedVersionInspectionSettings>
       <excludedPackages>
-        <pattern pattern="ruflin/*" />
         <pattern pattern="dreamfactory/*" />
       </excludedPackages>
     </unboundedVersionInspectionSettings>
