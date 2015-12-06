@@ -182,8 +182,9 @@ class InstanceProvisioner extends BaseInstanceProvisioner implements OfferingsAw
         $this->setOwnerPrivatePath($_ownerPrivatePath = $_storageProvisioner->getOwnerPrivatePath());
 
         //	1. Provision the database
-        $_dbService = Provision::getDatabaseProvisioner($_instance->guest_location_nbr);
-        $_dbConfig = $_dbService->provision($request);
+        if (false === ($_dbConfig = Provision::getDatabaseProvisioner($_instance->guest_location_nbr)->provision($request))) {
+            throw new ProvisioningException('[provisioning] error during database provisioning.');
+        }
 
         //  2. Generate an app key for the instance
         AppKey::create([
