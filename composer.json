@@ -24,6 +24,10 @@
 		},
 		{
 			"type": "vcs",
+			"url":  "https://github.com/dreamfactorysoftware/dfe-capsule.git"
+		},
+		{
+			"type": "vcs",
 			"url":  "https://github.com/dreamfactorysoftware/dfe-storage.git"
 		},
 		{
