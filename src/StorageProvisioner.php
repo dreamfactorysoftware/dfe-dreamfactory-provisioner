@@ -99,7 +99,8 @@ class StorageProvisioner extends BaseStorageProvisioner implements PortableData
             $this->debug('[provisioning:storage] structure built', $_paths);
         } catch (\Exception $_ex) {
             $this->error('[provisioning:storage] error creating directory structure: ' . $_ex->getMessage());
-            throw $_ex;
+
+            return false;
         }
 
         //  Fire off a "storage.provisioned" event...
@@ -109,6 +110,8 @@ class StorageProvisioner extends BaseStorageProvisioner implements PortableData
 
         $this->privatePath = $_privatePath;
         $this->ownerPrivatePath = $_ownerPrivatePath;
+
+        return true;
     }
 
     /**
@@ -129,9 +132,7 @@ class StorageProvisioner extends BaseStorageProvisioner implements PortableData
 
         //  I'm not sure how hard this tries to delete the directory
         if (!$_filesystem->has($_storagePath)) {
-            $this->notice('[deprovisioning:storage] unable to stat storage path "' .
-                $_storagePath .
-                '". not deleting!');
+            $this->notice('[deprovisioning:storage] unable to stat storage path "' . $_storagePath . '". not deleting!');
 
             return false;
         }

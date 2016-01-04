@@ -75,9 +75,7 @@ class InstanceProvisioner extends BaseInstanceProvisioner implements OfferingsAw
             $this->deprovisionStorage($request);
 
             if (!$this->deprovisionInstance($request, ['keep-database' => ($_ex instanceof SchemaExistsException)])) {
-                $this->error('[provisioning] unable to remove instance "' .
-                    $_instance->instance_id_text .
-                    '" after failed provision.');
+                $this->error('[provisioning] unable to remove instance "' . $_instance->instance_id_text . '" after failed provision.');
             }
         }
 
@@ -131,8 +129,7 @@ class InstanceProvisioner extends BaseInstanceProvisioner implements OfferingsAw
         $_filesystem = $request->getStorage();
 
         //  Do it!
-        $request->setStorageProvisioner(
-            $_provisioner = Provision::resolveStorage($request->getInstance()->guest_location_nbr));
+        $request->setStorageProvisioner($_provisioner = Provision::resolveStorage($request->getInstance()->guest_location_nbr));
 
         $_provisioner->provision($request);
 
@@ -219,7 +216,7 @@ class InstanceProvisioner extends BaseInstanceProvisioner implements OfferingsAw
             $_host = $this->getFullyQualifiedDomainName($_name);
 
             /** @noinspection PhpUndefinedMethodInspection */
-            DB::transaction(function () use ($_instance, $_host) {
+            DB::transaction(function() use ($_instance, $_host) {
                 /** Add guest data if there is a guest record */
                 $_instance->guest && $_instance->guest->fill([
                     'base_image_text'   => config('provisioning.base-image', ConsoleDefaults::DFE_CLUSTER_BASE_IMAGE),
