@@ -2,6 +2,7 @@
 
 use DreamFactory\Enterprise\Common\Contracts\PortableData;
 use DreamFactory\Enterprise\Common\Provisioners\BaseDatabaseProvisioner;
+use DreamFactory\Enterprise\Common\Provisioners\PortableServiceRequest;
 use DreamFactory\Enterprise\Common\Traits\EntityLookup;
 use DreamFactory\Enterprise\Database\Exceptions\DatabaseException;
 use DreamFactory\Enterprise\Database\Models\Instance;
@@ -167,7 +168,7 @@ class DatabaseProvisioner extends BaseDatabaseProvisioner implements PortableDat
         $this->dropDatabase($_db, $_instance->db_name_text);
         $this->createDatabase($_db, ['database' => $_instance->db_name_text]);
 
-        $_results = $this->loadSqlDump($_instance, $_from, $_rootConfig);
+        $_results = $this->loadSqlDump($_instance, $_from, $_rootConfig, $request);
 
         //  Clean up temp space...
         unlink($_from);
@@ -496,14 +497,25 @@ MYSQL
      * @param \DreamFactory\Enterprise\Database\Models\Instance $instance
      * @param string                                            $filename
      * @param array                                             $dbConfig
+     * @param PortableServiceRequest|null                       $request
      *
      * @return string
      */
-    protected function loadSqlDump(Instance $instance, $filename, $dbConfig)
+    protected function loadSqlDump(Instance $instance, $filename, $dbConfig, $request = null)
     {
         if (empty($_command = str_replace(PHP_EOL, null, `which mysql`))) {
             return false;
         }
+
+        if ($request && null !== ($_originalId = $request->get('original-instance-id'))) {
+            if (null === ($filename = $this->replaceOriginalInstanceId($filename, $instance, $_originalId))) {
+                $this->error('[provisioning:database] sql dump not valid');
+
+                return false;
+            }
+        }
+
+        $this->debug('[provisioning:database] sql dump "' . $filename . '" munged');
 
         $_template = $_command . ' {:options} < ' . $filename;
         $_port = $instance->db_port_nbr;
@@ -530,5 +542,44 @@ MYSQL
         }
 
         return $_output;
+    }
+
+    /**
+     * @param string   $filename
+     * @param Instance $instance
+     * @param string   $originalId
+     *
+     * @return string
+     */
+    protected function replaceOriginalInstanceId($filename, $instance, $originalId)
+    {
+        try {
+            $_newName = tempnam(sys_get_temp_dir(), $instance->instance_id_text . '.');
+            $_fd = fopen($filename, 'r');
+            $_fdNew = fopen($_newName, 'w');
+
+            while ($_line = fgets($_fd)) {
+                //  Skip create statements. Database is already there...
+                if ('create database' == strtolower(substr($_line, 0, 15))) {
+                    continue;
+                }
+
+                //  Replace the use statement...
+                if ('use ' == strtolower(substr($_line, 0, 4))) {
+                    $_line = 'USE `' . $instance->db_name_text . '`;';
+                }
+
+                fputs($_fdNew, $_line);
+            }
+
+            fclose($_fdNew);
+            fclose($_fd);
+
+            return $_newName;
+        } catch (\Exception $_ex) {
+            $this->error('[provisioning:database] error while munging sql dump: ' . $_ex->getMessage());
+
+            return null;
+        }
     }
 }
