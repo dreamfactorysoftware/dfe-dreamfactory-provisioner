@@ -2,15 +2,14 @@
 
 use DreamFactory\Enterprise\Common\Contracts\PortableData;
 use DreamFactory\Enterprise\Common\Provisioners\BaseDatabaseProvisioner;
+use DreamFactory\Enterprise\Common\Provisioners\PortableServiceRequest;
 use DreamFactory\Enterprise\Common\Traits\EntityLookup;
 use DreamFactory\Enterprise\Database\Exceptions\DatabaseException;
 use DreamFactory\Enterprise\Database\Models\Instance;
-use DreamFactory\Enterprise\Database\Traits\InstanceValidation;
 use DreamFactory\Enterprise\Services\Exceptions\ProvisioningException;
 use DreamFactory\Enterprise\Services\Exceptions\SchemaExistsException;
 use DreamFactory\Enterprise\Services\Provisioners\ProvisionServiceRequest;
 use DreamFactory\Library\Utility\Disk;
-use DreamFactory\Library\Utility\Json;
 use Illuminate\Database\Connection;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Support\Facades\DB;
@@ -60,9 +59,7 @@ class DatabaseProvisioner extends BaseDatabaseProvisioner implements PortableDat
                 try {
                     $this->deprovision($request);
                 } catch (\Exception $_ex) {
-                    $this->error('[provisioning:database] unable to eradicate Klingons from planet "' .
-                        $_creds['database'] .
-                        '" after provisioning failure.');
+                    $this->error('[provisioning:database] unable to eradicate Klingons from planet "' . $_creds['database'] . '" after provisioning failure.');
                 }
 
                 return false;
@@ -118,10 +115,7 @@ class DatabaseProvisioner extends BaseDatabaseProvisioner implements PortableDat
                 throw new ProvisioningException('Unable to delete database "' . $_instance->db_name_text . '".');
             }
         } catch (\Exception $_ex) {
-            $this->error('[deprovisioning:database] database "' .
-                $_instance->db_name_text .
-                '" FAILURE: ' .
-                $_ex->getMessage());
+            $this->error('[deprovisioning:database] database "' . $_instance->db_name_text . '" FAILURE: ' . $_ex->getMessage());
 
             return false;
         }
@@ -174,7 +168,7 @@ class DatabaseProvisioner extends BaseDatabaseProvisioner implements PortableDat
         $this->dropDatabase($_db, $_instance->db_name_text);
         $this->createDatabase($_db, ['database' => $_instance->db_name_text]);
 
-        $_results = $this->loadSqlDump($_instance, $_from, $_rootConfig);
+        $_results = $this->loadSqlDump($_instance, $_from, $_rootConfig, $request);
 
         //  Clean up temp space...
         unlink($_from);
@@ -198,8 +192,7 @@ class DatabaseProvisioner extends BaseDatabaseProvisioner implements PortableDat
         $_target = $_tag . '.database.sql';
 
         $_command = str_replace(PHP_EOL, null, `which mysqldump`);
-        $_template =
-            $_command . ' --compress --delayed-insert {options} >' . ($_workPath . DIRECTORY_SEPARATOR . $_target);
+        $_template = $_command . ' --compress --delayed-insert {options} >' . ($_workPath . DIRECTORY_SEPARATOR . $_target);
         $_port = $_instance->db_port_nbr;
         $_name = $_instance->db_name_text;
 
@@ -218,9 +211,7 @@ class DatabaseProvisioner extends BaseDatabaseProvisioner implements PortableDat
         exec($_command, $_output, $_return);
 
         if (0 != $_return) {
-            $this->error('[provisioning:database:export] error dumping instance database "' .
-                $_instance->instance_id_text .
-                '".');
+            $this->error('[provisioning:database:export] error dumping instance database "' . $_instance->instance_id_text . '".');
 
             return false;
         }
@@ -314,9 +305,7 @@ class DatabaseProvisioner extends BaseDatabaseProvisioner implements PortableDat
             }
 
             if (++$_tries > 10) {
-                throw new \LogicException('Unable to locate a non-unique database user name after ' .
-                    $_tries .
-                    ' attempts.');
+                throw new \LogicException('Unable to locate a non-unique database user name after ' . $_tries . ' attempts.');
             }
 
             //  Quick snoozy and we try again
@@ -373,13 +362,23 @@ MYSQL
                 return true;
             }
 
-            $this->debug('[provisioning:database] dropping database "' . $databaseToDrop . '"');
+            $this->debug('[deprovisioning:database] dropping database "' . $databaseToDrop . '"');
 
-            return $db->transaction(function () use ($db, $databaseToDrop) {
-                $_result = $db->statement('SET FOREIGN_KEY_CHECKS = 0');
-                $_result && $_result = $db->statement('DROP DATABASE `' . $databaseToDrop . '`');
-                $_result && $db->statement('SET FOREIGN_KEY_CHECKS = 1');
-                $this->debug('[provisioning:database] database "' . $databaseToDrop . '" dropped.');
+            return $db->transaction(function() use ($db, $databaseToDrop) {
+                $_result = false;
+
+                if ($db->statement('SET FOREIGN_KEY_CHECKS = 0')) {
+
+                    try {
+                        $_result = $db->statement('DROP DATABASE `' . $databaseToDrop . '`');
+                        $this->debug('[deprovisioning:database] database "' . $databaseToDrop . '" dropped.');
+                    } catch (\Exception $_ex) {
+                        \Log::notice('Unable to drop database "' . $databaseToDrop . '": ' . $_ex->getMessage());
+                    }
+                    finally {
+                        $db->statement('SET FOREIGN_KEY_CHECKS = 1');
+                    }
+                }
 
                 return $_result;
             });
@@ -388,12 +387,12 @@ MYSQL
 
             //  If the database is already gone, don't cause an error, but note it.
             if (false !== stripos($_message, 'general error: 1008')) {
-                $this->info('[provisioning:database] drop database - not performed. database does not exist.');
+                $this->info('[deprovisioning:database] drop database - not performed. database does not exist.');
 
                 return true;
             }
 
-            $this->error('[provisioning:database] drop database - failure: ' . $_message);
+            $this->error('[deprovisioning:database] drop database - failure: ' . $_message);
 
             return false;
         }
@@ -408,19 +407,13 @@ MYSQL
      */
     protected function grantPrivileges($db, $creds, $fromServer)
     {
-        return $db->transaction(function () use ($db, $creds, $fromServer) {
+        return $db->transaction(function() use ($db, $creds, $fromServer) {
             //  Create users
             $_users = $this->getDatabaseUsers($creds, $fromServer);
 
             try {
                 foreach ($_users as $_user) {
-                    $db->statement('GRANT ALL PRIVILEGES ON ' .
-                        $creds['database'] .
-                        '.* TO ' .
-                        $_user .
-                        ' IDENTIFIED BY \'' .
-                        $creds['password'] .
-                        '\'');
+                    $db->statement('GRANT ALL PRIVILEGES ON ' . $creds['database'] . '.* TO ' . $_user . ' IDENTIFIED BY \'' . $creds['password'] . '\'');
                 }
 
                 //	Grants for instance database
@@ -442,32 +435,30 @@ MYSQL
      */
     protected function revokePrivileges($db, $creds, $fromServer)
     {
-        return $db->transaction(function () use ($db, $creds, $fromServer) {
+        return $db->transaction(function() use ($db, $creds, $fromServer) {
             //  Create users
             $_users = $this->getDatabaseUsers($creds, $fromServer);
 
             try {
                 foreach ($_users as $_user) {
                     //	Grants for instance database
-                    if (!($_result =
-                        $db->statement('REVOKE ALL PRIVILEGES ON ' . $creds['database'] . '.* FROM ' . $_user))
-                    ) {
-                        $this->error('[provisioning:database] error revoking privileges from "' . $_user . '"');
+                    if (!($_result = $db->statement('REVOKE ALL PRIVILEGES ON ' . $creds['database'] . '.* FROM ' . $_user))) {
+                        $this->error('[deprovisioning:database] error revoking privileges from "' . $_user . '"');
                         continue;
                     }
 
-                    $this->debug('[provisioning:database] grants revoked - complete');
+                    $this->debug('[deprovisioning:database] grants revoked - complete');
 
                     if (!($_result = $db->statement('DROP USER ' . $_user))) {
-                        $this->error('[provisioning:database] error dropping user "' . $_user . '"');
+                        $this->error('[deprovisioning:database] error dropping user "' . $_user . '"');
                     }
 
-                    $_result && $this->debug('[provisioning:database] users dropped > ', $_users);
+                    $_result && $this->debug('[deprovisioning:database] users dropped > ', $_users);
                 }
 
                 return true;
             } catch (\Exception $_ex) {
-                $this->error('[provisioning:database] revoke grants - failure: ' . $_ex->getMessage());
+                $this->error('[deprovisioning:database] revoke grants - failure: ' . $_ex->getMessage());
 
                 return false;
             }
@@ -506,14 +497,25 @@ MYSQL
      * @param \DreamFactory\Enterprise\Database\Models\Instance $instance
      * @param string                                            $filename
      * @param array                                             $dbConfig
+     * @param PortableServiceRequest|null                       $request
      *
      * @return string
      */
-    protected function loadSqlDump(Instance $instance, $filename, $dbConfig)
+    protected function loadSqlDump(Instance $instance, $filename, $dbConfig, $request = null)
     {
         if (empty($_command = str_replace(PHP_EOL, null, `which mysql`))) {
             return false;
         }
+
+        if ($request && null !== ($_originalId = $request->get('original-instance-id'))) {
+            if (null === ($filename = $this->replaceOriginalInstanceId($filename, $instance, $_originalId))) {
+                $this->error('[provisioning:database] sql dump not valid');
+
+                return false;
+            }
+        }
+
+        $this->debug('[provisioning:database] sql dump "' . $filename . '" munged');
 
         $_template = $_command . ' {:options} < ' . $filename;
         $_port = $instance->db_port_nbr;
@@ -533,14 +535,51 @@ MYSQL
         exec($_command, $_output, $_return);
 
         if (0 != $_return) {
-            $this->error('[provisioning:database] error importing database of instance id "' .
-                $instance->instance_id_text .
-                '".',
+            $this->error('[provisioning:database] error importing database of instance id "' . $instance->instance_id_text . '".',
                 ['output' => $_output, 'command' => $_command, 'return' => $_return]);
 
             return false;
         }
 
         return $_output;
+    }
+
+    /**
+     * @param string   $filename
+     * @param Instance $instance
+     * @param string   $originalId
+     *
+     * @return string
+     */
+    protected function replaceOriginalInstanceId($filename, $instance, $originalId)
+    {
+        try {
+            $_newName = tempnam(sys_get_temp_dir(), $instance->instance_id_text . '.');
+            $_fd = fopen($filename, 'r');
+            $_fdNew = fopen($_newName, 'w');
+
+            while ($_line = fgets($_fd)) {
+                //  Skip create statements. Database is already there...
+                if ('create database' == strtolower(substr($_line, 0, 15))) {
+                    continue;
+                }
+
+                //  Replace the use statement...
+                if ('use ' == strtolower(substr($_line, 0, 4))) {
+                    $_line = 'USE `' . $instance->db_name_text . '`;';
+                }
+
+                fputs($_fdNew, $_line);
+            }
+
+            fclose($_fdNew);
+            fclose($_fd);
+
+            return $_newName;
+        } catch (\Exception $_ex) {
+            $this->error('[provisioning:database] error while munging sql dump: ' . $_ex->getMessage());
+
+            return null;
+        }
     }
 }
