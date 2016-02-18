@@ -12,6 +12,7 @@ use DreamFactory\Enterprise\Database\Enums\GuestLocations;
 use DreamFactory\Enterprise\Database\Enums\OwnerTypes;
 use DreamFactory\Enterprise\Database\Enums\ProvisionStates;
 use DreamFactory\Enterprise\Database\Models\AppKey;
+use DreamFactory\Enterprise\Database\Models\Deactivation;
 use DreamFactory\Enterprise\Services\Exceptions\ProvisioningException;
 use DreamFactory\Enterprise\Services\Exceptions\SchemaExistsException;
 use DreamFactory\Enterprise\Services\Facades\Provision;
@@ -82,7 +83,7 @@ class InstanceProvisioner extends BaseInstanceProvisioner implements OfferingsAw
         return ProvisionServiceResponse::make($_success,
             $request,
             $_result,
-            ['instance' => $_success ? $_instance->toArray() : false,],
+            ['instance' => $_success ? $_instance->toArray() : false],
             $_output);
     }
 
@@ -95,7 +96,7 @@ class InstanceProvisioner extends BaseInstanceProvisioner implements OfferingsAw
     protected function doDeprovision($request, $options = [])
     {
         $_output = [];
-        $_success = $_result = false;
+        $_deleted = $_success = $_result = false;
         $_instance = $request->getInstance();
         $_original = $_instance->toArray();
 
@@ -109,10 +110,17 @@ class InstanceProvisioner extends BaseInstanceProvisioner implements OfferingsAw
             $_instance->updateState(ProvisionStates::DEPROVISIONING_ERROR);
         }
 
+        try {
+            //  Remove any deactivation leftovers...
+            $_deleted = (0 != Deactivation::where('instance_id', $_instance->id)->delete());
+        } catch (\Exception $_ex) {
+            //  don't care
+        }
+
         return ProvisionServiceResponse::make($_success,
             $request,
             $_result,
-            ['instance' => $_success ? $_original : false,],
+            ['instance' => $_success ? $_original : false, 'deactivations' => $_deleted],
             $_output);
     }
 
