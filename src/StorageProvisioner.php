@@ -5,8 +5,12 @@ use DreamFactory\Enterprise\Common\Provisioners\BaseStorageProvisioner;
 use DreamFactory\Enterprise\Services\Provisioners\ProvisionServiceRequest;
 use DreamFactory\Enterprise\Storage\Facades\InstanceStorage;
 use DreamFactory\Library\Utility\Disk;
+use Event;
+use Exception;
+use InvalidArgumentException;
 use League\Flysystem\Filesystem;
 use League\Flysystem\ZipArchive\ZipArchiveAdapter;
+use RuntimeException;
 
 /**
  * DreamFactory Enterprise(tm) and Services Platform File System
@@ -53,7 +57,7 @@ class StorageProvisioner extends BaseStorageProvisioner implements PortableData
      * @param ProvisionServiceRequest $request
      *
      * @return \DreamFactory\Enterprise\Common\Provisioners\BaseResponse|void
-     * @throws \Exception
+     * @throws Exception
      */
     protected function doProvision($request)
     {
@@ -97,14 +101,14 @@ class StorageProvisioner extends BaseStorageProvisioner implements PortableData
             }
 
             $this->debug('[provisioning:storage] structure built', $_paths);
-        } catch (\Exception $_ex) {
+        } catch (Exception $_ex) {
             $this->error('[provisioning:storage] error creating directory structure: ' . $_ex->getMessage());
 
             return false;
         }
 
         //  Fire off a "storage.provisioned" event...
-        \Event::fire('dfe.storage.provisioned', [$this, $request]);
+        Event::fire('dfe.storage.provisioned', [$this, $request]);
 
         $this->info('[provisioning:storage] instance "' . $_instance->instance_id_text . '" complete');
 
@@ -144,7 +148,7 @@ class StorageProvisioner extends BaseStorageProvisioner implements PortableData
         }
 
         //  Fire off a "storage.deprovisioned" event...
-        \Event::fire('dfe.storage.deprovisioned', [$this, $request]);
+        Event::fire('dfe.storage.deprovisioned', [$this, $request]);
 
         $this->info('[deprovisioning:storage] instance "' . $_instance->instance_id_text . '" complete');
 
@@ -173,13 +177,13 @@ class StorageProvisioner extends BaseStorageProvisioner implements PortableData
                 $_from = Disk::segment([sys_get_temp_dir(), 'dfe', 'import', sha1($_file['path'])], true);
 
                 if (!$_archive->extractTo($_from, $_file['path'])) {
-                    throw new \RuntimeException('Unable to unzip archive file "' . $_file['path'] . '" from snapshot.');
+                    throw new RuntimeException('Unable to unzip archive file "' . $_file['path'] . '" from snapshot.');
                 }
 
                 $_path = Disk::path([$_from, $_file['path']], false);
 
                 if (!$_path || !file_exists($_path)) {
-                    throw new \InvalidArgumentException('$from file "' . $_file['path'] . '" missing or unreadable.');
+                    throw new InvalidArgumentException('$from file "' . $_file['path'] . '" missing or unreadable.');
                 }
 
                 $_from = new Filesystem(new ZipArchiveAdapter($_path));
@@ -217,7 +221,7 @@ class StorageProvisioner extends BaseStorageProvisioner implements PortableData
         $_path && is_dir(dirname($_path)) && Disk::deleteTree(dirname($_path));
 
         //  Fire off a "storage.imported" event...
-        \Event::fire('dfe.storage.imported', [$this, $request]);
+        Event::fire('dfe.storage.imported', [$this, $request]);
 
         $this->info('[provisioning:storage:import] instance "' . $_instance->instance_id_text . '" complete');
 
@@ -245,7 +249,7 @@ class StorageProvisioner extends BaseStorageProvisioner implements PortableData
         !$request->get('keep-work', false) && $this->deleteWorkPath($_tag);
 
         //  Fire off a "storage.exported" event...
-        \Event::fire('dfe.storage.exported', [$this, $request]);
+        Event::fire('dfe.storage.exported', [$this, $request]);
 
         $this->info('[provisioning:storage:export] instance "' . $_instance->instance_id_text . '" complete');
 
