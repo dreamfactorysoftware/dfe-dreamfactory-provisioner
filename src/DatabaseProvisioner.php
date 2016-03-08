@@ -10,9 +10,15 @@ use DreamFactory\Enterprise\Services\Exceptions\ProvisioningException;
 use DreamFactory\Enterprise\Services\Exceptions\SchemaExistsException;
 use DreamFactory\Enterprise\Services\Provisioners\ProvisionServiceRequest;
 use DreamFactory\Library\Utility\Disk;
+use Event;
+use Exception;
 use Illuminate\Database\Connection;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Support\Facades\DB;
+use InvalidArgumentException;
+use Log;
+use LogicException;
+use RuntimeException;
 
 class DatabaseProvisioner extends BaseDatabaseProvisioner implements PortableData
 {
@@ -42,7 +48,7 @@ class DatabaseProvisioner extends BaseDatabaseProvisioner implements PortableDat
         $_serverId = $_instance->db_server_id;
 
         if (empty($_serverId)) {
-            throw new \InvalidArgumentException('Please assign the instance to a database server before provisioning database resources.');
+            throw new InvalidArgumentException('Please assign the instance to a database server before provisioning database resources.');
         }
 
         //  Get a connection to the instance's database server
@@ -58,7 +64,7 @@ class DatabaseProvisioner extends BaseDatabaseProvisioner implements PortableDat
             if (false === $this->createDatabase($_db, $_creds)) {
                 try {
                     $this->deprovision($request);
-                } catch (\Exception $_ex) {
+                } catch (Exception $_ex) {
                     $this->error('[provisioning:database] unable to eradicate Klingons from planet "' . $_creds['database'] . '" after provisioning failure.');
                 }
 
@@ -72,7 +78,7 @@ class DatabaseProvisioner extends BaseDatabaseProvisioner implements PortableDat
                 try {
                     //	Try and get rid of the database we created
                     $this->dropDatabase($_db, $_creds['database']);
-                } catch (\Exception $_ex) {
+                } catch (Exception $_ex) {
                     //  Ignored, what can we do?
                 }
 
@@ -82,12 +88,12 @@ class DatabaseProvisioner extends BaseDatabaseProvisioner implements PortableDat
             }
         } catch (ProvisioningException $_ex) {
             throw $_ex;
-        } catch (\Exception $_ex) {
+        } catch (Exception $_ex) {
             throw new ProvisioningException($_ex->getMessage(), $_ex->getCode());
         }
 
         //  Fire off a "database.provisioned" event...
-        \Event::fire('dfe.database.provisioned', [$this, $request]);
+        Event::fire('dfe.database.provisioned', [$this, $request]);
 
         $this->info('[provisioning:database] instance "' . $_instance->instance_id_text . '" complete');
 
@@ -114,14 +120,14 @@ class DatabaseProvisioner extends BaseDatabaseProvisioner implements PortableDat
             if (!$this->dropDatabase($_db, $_instance->db_name_text)) {
                 throw new ProvisioningException('Unable to delete database "' . $_instance->db_name_text . '".');
             }
-        } catch (\Exception $_ex) {
+        } catch (Exception $_ex) {
             $this->error('[deprovisioning:database] database "' . $_instance->db_name_text . '" FAILURE: ' . $_ex->getMessage());
 
             return false;
         }
 
         //  Fire off a "database.deprovisioned" event...
-        \Event::fire('dfe.database.deprovisioned', [$this, $request]);
+        Event::fire('dfe.database.deprovisioned', [$this, $request]);
 
         $this->info('[deprovisioning:database] instance "' . $_instance->instance_id_text . '" complete');
 
@@ -149,13 +155,13 @@ class DatabaseProvisioner extends BaseDatabaseProvisioner implements PortableDat
                 $_path = Disk::segment([sys_get_temp_dir(), 'dfe', 'import', sha1($_file['path'])], true);
 
                 if (!$_archive->extractTo($_path, $_file['path'])) {
-                    throw new \RuntimeException('Unable to unzip archive file "' . $_file['path'] . '" from snapshot.');
+                    throw new RuntimeException('Unable to unzip archive file "' . $_file['path'] . '" from snapshot.');
                 }
 
                 $_from = Disk::path([$_path, $_file['path']], false);
 
                 if (!$_from || !file_exists($_from)) {
-                    throw new \InvalidArgumentException('$from file "' . $_file['path'] . '" missing or unreadable.');
+                    throw new InvalidArgumentException('$from file "' . $_file['path'] . '" missing or unreadable.');
                 }
 
                 break;
@@ -174,7 +180,7 @@ class DatabaseProvisioner extends BaseDatabaseProvisioner implements PortableDat
         unlink($_from);
 
         //  Fire off a "database.imported" event...
-        \Event::fire('dfe.database.imported', [$this, $request]);
+        Event::fire('dfe.database.imported', [$this, $request]);
 
         $this->info('[provisioning:database:import] instance "' . $_instance->instance_id_text . '" complete');
 
@@ -221,7 +227,7 @@ class DatabaseProvisioner extends BaseDatabaseProvisioner implements PortableDat
         $this->deleteWorkPath($_tag);
 
         //  Fire off a "database.exported" event...
-        \Event::fire('dfe.database.exported', [$this, $request]);
+        Event::fire('dfe.database.exported', [$this, $request]);
 
         $this->info('[provisioning:database:export] instance "' . $_instance->instance_id_text . '" complete');
 
@@ -241,13 +247,13 @@ class DatabaseProvisioner extends BaseDatabaseProvisioner implements PortableDat
 
         //  And stoopids (sic)
         if (empty($_dbServerId)) {
-            throw new \RuntimeException('Empty server id given during database resource provisioning for instance');
+            throw new RuntimeException('Empty server id given during database resource provisioning for instance');
         }
 
         try {
             $_server = $this->_findServer($_dbServerId);
         } catch (ModelNotFoundException $_ex) {
-            throw new \RuntimeException('Database resource "' . $_dbServerId . '" not found.');
+            throw new RuntimeException('Database resource "' . $_dbServerId . '" not found.');
         }
 
         //  Get the REAL server name
@@ -259,7 +265,7 @@ class DatabaseProvisioner extends BaseDatabaseProvisioner implements PortableDat
 
         //  Sanity Checks
         if (empty($_config)) {
-            throw new \LogicException('Configuration invalid for database resource during provisioning.');
+            throw new LogicException('Configuration invalid for database resource during provisioning.');
         }
 
         //  Add it to the connection list
@@ -305,7 +311,7 @@ class DatabaseProvisioner extends BaseDatabaseProvisioner implements PortableDat
             }
 
             if (++$_tries > 10) {
-                throw new \LogicException('Unable to locate a non-unique database user name after ' . $_tries . ' attempts.');
+                throw new LogicException('Unable to locate a non-unique database user name after ' . $_tries . ' attempts.');
             }
 
             //  Quick snoozy and we try again
@@ -341,7 +347,7 @@ MYSQL
             }
 
             return true;
-        } catch (\Exception $_ex) {
+        } catch (Exception $_ex) {
             $this->error('[provisioning:database] create database - failure: ' . $_ex->getMessage());
 
             return false;
@@ -372,8 +378,8 @@ MYSQL
                     try {
                         $_result = $db->statement('DROP DATABASE `' . $databaseToDrop . '`');
                         $this->debug('[deprovisioning:database] database "' . $databaseToDrop . '" dropped.');
-                    } catch (\Exception $_ex) {
-                        \Log::notice('Unable to drop database "' . $databaseToDrop . '": ' . $_ex->getMessage());
+                    } catch (Exception $_ex) {
+                        Log::notice('Unable to drop database "' . $databaseToDrop . '": ' . $_ex->getMessage());
                     }
                     finally {
                         $db->statement('SET FOREIGN_KEY_CHECKS = 1');
@@ -382,7 +388,7 @@ MYSQL
 
                 return $_result;
             });
-        } catch (\Exception $_ex) {
+        } catch (Exception $_ex) {
             $_message = $_ex->getMessage();
 
             //  If the database is already gone, don't cause an error, but note it.
@@ -418,7 +424,7 @@ MYSQL
 
                 //	Grants for instance database
                 return true;
-            } catch (\Exception $_ex) {
+            } catch (Exception $_ex) {
                 $this->error('[provisioning:database] issue grants - failure: ' . $_ex->getMessage());
 
                 return false;
@@ -457,7 +463,7 @@ MYSQL
                 }
 
                 return true;
-            } catch (\Exception $_ex) {
+            } catch (Exception $_ex) {
                 $this->error('[deprovisioning:database] revoke grants - failure: ' . $_ex->getMessage());
 
                 return false;
@@ -576,7 +582,7 @@ MYSQL
             fclose($_fd);
 
             return $_newName;
-        } catch (\Exception $_ex) {
+        } catch (Exception $_ex) {
             $this->error('[provisioning:database] error while munging sql dump: ' . $_ex->getMessage());
 
             return null;

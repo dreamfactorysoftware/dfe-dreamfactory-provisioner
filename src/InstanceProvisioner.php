@@ -1,7 +1,7 @@
 <?php namespace DreamFactory\Enterprise\Provisioners\DreamFactory;
 
 use DreamFactory\Enterprise\Common\Contracts\OfferingsAware;
-use DreamFactory\Enterprise\Common\Enums\AppKeyClasses;
+use DreamFactory\Enterprise\Database\Enums\AppKeyClasses;
 use DreamFactory\Enterprise\Common\Enums\InstanceStates;
 use DreamFactory\Enterprise\Common\Enums\OperationalStates;
 use DreamFactory\Enterprise\Common\Provisioners\BaseInstanceProvisioner;
@@ -18,8 +18,11 @@ use DreamFactory\Enterprise\Services\Exceptions\SchemaExistsException;
 use DreamFactory\Enterprise\Services\Facades\Provision;
 use DreamFactory\Enterprise\Services\Provisioners\ProvisionServiceRequest;
 use DreamFactory\Enterprise\Services\Provisioners\ProvisionServiceResponse;
+use Event;
+use Exception;
 use Illuminate\Contracts\Filesystem\Filesystem;
 use Illuminate\Support\Facades\DB;
+use RuntimeException;
 
 class InstanceProvisioner extends BaseInstanceProvisioner implements OfferingsAware
 {
@@ -65,7 +68,7 @@ class InstanceProvisioner extends BaseInstanceProvisioner implements OfferingsAw
             $_result = $this->provisionInstance($request);
             $_instance = $_instance->fresh();
             $_success = true;
-        } catch (\Exception $_ex) {
+        } catch (Exception $_ex) {
             $this->error('[provisioning] exception: ' . $_ex->getMessage());
 
             $_instance->updateState(ProvisionStates::PROVISIONING_ERROR);
@@ -106,14 +109,14 @@ class InstanceProvisioner extends BaseInstanceProvisioner implements OfferingsAw
         try {
             $_result = $this->deprovisionInstance($request, $options);
             $_success = true;
-        } catch (\Exception $_ex) {
+        } catch (Exception $_ex) {
             $_instance->updateState(ProvisionStates::DEPROVISIONING_ERROR);
         }
 
         try {
             //  Remove any deactivation leftovers...
             $_deleted = (0 != Deactivation::where('instance_id', $_instance->id)->delete());
-        } catch (\Exception $_ex) {
+        } catch (Exception $_ex) {
             //  don't care
         }
 
@@ -236,12 +239,12 @@ class InstanceProvisioner extends BaseInstanceProvisioner implements OfferingsAw
                 //  Save the instance
                 $_instance->save();
             });
-        } catch (\Exception $_ex) {
-            throw new \RuntimeException('[provisioning:instance] error updating instance data: ' . $_ex->getMessage());
+        } catch (Exception $_ex) {
+            throw new RuntimeException('[provisioning:instance] error updating instance data: ' . $_ex->getMessage());
         }
 
         //  Fire off a "provisioned" event...
-        \Event::fire('dfe.provisioned', [$this, $request, $_instance->getMetadata()]);
+        Event::fire('dfe.provisioned', [$this, $request, $_instance->getMetadata()]);
 
         $this->info('[provisioning:instance] instance "' . $_name . '" provisioned');
 
@@ -276,16 +279,16 @@ class InstanceProvisioner extends BaseInstanceProvisioner implements OfferingsAw
 
         try {
             if (!$_instance->delete()) {
-                throw new \RuntimeException('Instance row deletion failed.');
+                throw new RuntimeException('Instance row deletion failed.');
             }
-        } catch (\Exception $_ex) {
+        } catch (Exception $_ex) {
             $this->error('[deprovisioning:instance] exception while deleting instance row: ' . $_ex->getMessage());
 
             return false;
         }
 
         //  Fire off a "deprovisioned" event...
-        \Event::fire('dfe.deprovisioned', [$this, $request]);
+        Event::fire('dfe.deprovisioned', [$this, $request]);
 
         $this->info('[deprovisioning:instance] instance "' . $_name . '" complete');
 
