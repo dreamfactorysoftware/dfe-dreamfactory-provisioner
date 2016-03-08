@@ -1,6 +1,6 @@
 {
 	"name":              "dreamfactory/dfe-dreamfactory-provisioner",
-	"description":       "DreamFactory Enterprise(tm) DreamFactory Provisioner",
+	"description":       "DreamFactory(tm) Enterprise Instance Provisioning Package",
 	"homepage":          "https://www.dreamfactory.com/",
 	"keywords":          [
 		"dreamfactory",
@@ -57,8 +57,7 @@
 	],
 	"minimum-stability": "dev",
 	"require":           {
-		"graham-campbell/flysystem":             "~3.0",
-		"league/flysystem-sftp":                 "~1.0",
+		"graham-campbell/flysystem":             "^3.0",
 		"league/flysystem-ziparchive":           "~1.0",
 		"league/flysystem-eventable-filesystem": "~1.0",
 		"dreamfactory/php-utils":                "1.1.*",
@@ -67,8 +66,7 @@
 		"dreamfactory/dfe-common":               "1.0.*"
 	},
 	"require-dev":       {
-		"dreamfactory/dfe-console":  "dev-develop as dev-master",
-		"laravel/framework":         "5.1.*",
+		"laravel/framework":         "5.1.*|5.2.*",
 		"guzzlehttp/guzzle":         "~4.0",
 		"wpb/string-blade-compiler": "2.*@dev",
 		"phpunit/phpunit":           "@stable"
