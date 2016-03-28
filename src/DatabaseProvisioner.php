@@ -494,6 +494,8 @@ MYSQL
     protected function getDatabaseUsers($creds, $fromServer)
     {
         return [
+            '\'' . $creds['username'] . '\'@\'%\'',
+            '\'' . $creds['username'] . '\'@\'' . gethostbyname($fromServer) . '\'',
             '\'' . $creds['username'] . '\'@\'' . $fromServer . '\'',
             '\'' . $creds['username'] . '\'@\'localhost\'',
         ];
