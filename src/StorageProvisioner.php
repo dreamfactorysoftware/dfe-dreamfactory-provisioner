@@ -64,6 +64,7 @@ class StorageProvisioner extends BaseStorageProvisioner implements PortableData
         //  Wipe existing stuff
         $_instance = $request->getInstance();
         $_filesystem = $request->getStorage();
+        $_packages = $request->get('packages', []);
         $_paths = [];
 
         //******************************************************************************
@@ -89,7 +90,10 @@ class StorageProvisioner extends BaseStorageProvisioner implements PortableData
             }
 
             foreach (config('provisioning.private-paths', []) as $_path) {
-                $_paths[] = Disk::segment([$_privatePath, $_path]);
+                $_fullPath = Disk::segment([$_privatePath, $_path]);
+
+                $_path = Disk::segment([$_privatePath, $_path]);
+                $_paths[] = $_path;
             }
 
             foreach (config('provisioning.owner-private-paths', []) as $_path) {
@@ -98,6 +102,25 @@ class StorageProvisioner extends BaseStorageProvisioner implements PortableData
 
             foreach ($_paths as $_path) {
                 !$_filesystem->has($_path) && $_filesystem->createDir($_path);
+            }
+
+            //  Copy any package files...
+            if (!empty($_packages)) {
+                $_packagePath = Disk::path([$_privatePath, config('package-path-name', 'packages')]);
+                !$_filesystem->has($_packagePath) && $_filesystem->createDir($_packagePath);
+
+                foreach ($_packages as $_package) {
+                    try {
+                        if (false === @copy($_package, Disk::path([$_packagePath, basename($_package)]))) {
+                            throw new \Exception();
+                        }
+                    } catch (\Exception $_ex) {
+                        \Log::error('[provisioning:storage] error copying package file to private path',
+                            ['message' => $_ex->getMessage(), 'source' => $_package, 'destination' => $_packagePath]);
+                    }
+                }
+
+                $this->setPackagePath($_packagePath);
             }
 
             $this->debug('[provisioning:storage] structure built', $_paths);
@@ -112,8 +135,8 @@ class StorageProvisioner extends BaseStorageProvisioner implements PortableData
 
         $this->info('[provisioning:storage] instance "' . $_instance->instance_id_text . '" complete');
 
-        $this->privatePath = $_privatePath;
-        $this->ownerPrivatePath = $_ownerPrivatePath;
+        $this->setPrivatePath($_privatePath);
+        $this->setOwnerPrivatePath($_ownerPrivatePath);
 
         return true;
     }
@@ -255,5 +278,12 @@ class StorageProvisioner extends BaseStorageProvisioner implements PortableData
 
         //  The name of the file in the snapshot mount
         return $_file;
+    }
+
+    protected function storePackages($packages = [])
+    {
+        if (!is_array($packages)) {
+            $packages = [$packages];
+        }
     }
 }

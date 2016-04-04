@@ -223,6 +223,10 @@ class InstanceProvisioner extends BaseInstanceProvisioner implements OfferingsAw
                 'deprovision_ind'    => false,
             ]);
 
+            //  Set any package entries separately
+            $_instance->setPackages($request->get('packages', []));
+            $_instance->setPackagePath($request->get('package-path'));
+
             //  Create the guest row...
             $_host = $this->getFullyQualifiedDomainName($_name);
 
