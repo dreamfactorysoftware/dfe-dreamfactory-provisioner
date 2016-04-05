@@ -197,16 +197,13 @@ class InstanceProvisioner extends BaseInstanceProvisioner implements OfferingsAw
             throw new ProvisioningException('Error during database provisioning.');
         }
 
-        /**
-         * Handled in static::creating event handler of Instance model
-         */
-//        //  2. Generate an app key for the instance
-//        AppKey::create([
-//            'key_class_text' => AppKeyClasses::INSTANCE,
-//            'owner_id'       => $_instance->id,
-//            'owner_type_nbr' => OwnerTypes::INSTANCE,
-//            'server_secret'  => config('dfe.security.console-api-key'),
-//        ]);
+        //  2. Generate an app key for the instance
+        AppKey::create([
+            'key_class_text' => AppKeyClasses::INSTANCE,
+            'owner_id'       => $_instance->id,
+            'owner_type_nbr' => OwnerTypes::INSTANCE,
+            'server_secret'  => config('dfe.security.console-api-key'),
+        ]);
 
         //  3. Update the instance with new provision info
         try {
