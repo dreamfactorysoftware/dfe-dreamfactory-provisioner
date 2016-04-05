@@ -125,9 +125,9 @@ class StorageProvisioner extends BaseStorageProvisioner implements PortableData
                         $this->error('[provisioning:storage] error copying package file to private path',
                             ['message' => $_ex->getMessage(), 'source' => $_package, 'destination' => $_packagePath]);
                     }
-
-                    $_instance->setPackages($_packagePath);
                 }
+
+                !empty($_packages) && $_instance->setPackages($_packages)->save();
             } else {
                 $this->debug('[dfe.storage-provisioner.do-provision] * no packages to install');
             }
