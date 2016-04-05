@@ -69,7 +69,7 @@ class InstanceProvisioner extends BaseInstanceProvisioner implements OfferingsAw
             $_instance = $_instance->fresh();
             $_success = true;
         } catch (Exception $_ex) {
-            $this->error('[provisioning] exception: ' . $_ex->getMessage());
+            $this->error('[dfe.instance-provisioner.do-provision] exception: ' . $_ex->getMessage());
 
             $_instance->updateState(ProvisionStates::PROVISIONING_ERROR);
 
@@ -79,7 +79,9 @@ class InstanceProvisioner extends BaseInstanceProvisioner implements OfferingsAw
             $this->deprovisionStorage($request);
 
             if (!$this->deprovisionInstance($request, ['keep-database' => ($_ex instanceof SchemaExistsException)])) {
-                $this->error('[provisioning] unable to remove instance "' . $_instance->instance_id_text . '" after failed provision.');
+                $this->error('[dfe.instance-provisioner.do-provision] unable to remove instance "' .
+                    $_instance->instance_id_text .
+                    '" after failed provision.');
             }
         }
 
@@ -134,7 +136,7 @@ class InstanceProvisioner extends BaseInstanceProvisioner implements OfferingsAw
      */
     protected function provisionStorage($request)
     {
-        $this->info('[provisioning:storage] begin');
+        $this->debug('[dfe.instance-provisioner.provision-storage] begin');
 
         //  Use requested file system if one...
         $_filesystem = $request->getStorage();
@@ -144,7 +146,7 @@ class InstanceProvisioner extends BaseInstanceProvisioner implements OfferingsAw
 
         $_provisioner->provision($request);
 
-        $this->info('[provisioning:storage] complete');
+        $this->info('[dfe.instance-provisioner.provision-storage] complete');
 
         return $_filesystem;
     }
@@ -156,7 +158,7 @@ class InstanceProvisioner extends BaseInstanceProvisioner implements OfferingsAw
      */
     protected function deprovisionStorage($request)
     {
-        $this->info('[deprovisioning:storage] begin');
+        $this->debug('[dfe.instance-provisioner.deprovision-storage] begin');
 
         //  Use requested file system if one...
         $_filesystem = $request->getStorage();
@@ -164,7 +166,7 @@ class InstanceProvisioner extends BaseInstanceProvisioner implements OfferingsAw
         //  Do it!
         Provision::resolveStorage($request->getInstance()->guest_location_nbr)->deprovision($request);
 
-        $this->info('[deprovisioning:storage] complete');
+        $this->info('[dfe.instance-provisioner.deprovision-storage] complete');
 
         return $_filesystem;
     }
@@ -183,15 +185,16 @@ class InstanceProvisioner extends BaseInstanceProvisioner implements OfferingsAw
         $_instance = $request->getInstance();
         $_name = $this->sanitizeInstanceName($_instance->instance_name_text);
 
-        $this->info('[provisioning] instance "' . $_name . '" begin');
+        $this->debug('[dfe.instance-provisioner.provision-instance] instance "' . $_name . '" begin');
 
         $_storageProvisioner = $request->getStorageProvisioner();
         $this->setPrivatePath($_privatePath = $_storageProvisioner->getPrivatePath());
         $this->setOwnerPrivatePath($_ownerPrivatePath = $_storageProvisioner->getOwnerPrivatePath());
+        $this->setPackagePath($_packagePath = $_storageProvisioner->getPackagePath());
 
         //	1. Provision the database
         if (false === ($_dbConfig = Provision::getDatabaseProvisioner($_instance->guest_location_nbr)->provision($request))) {
-            throw new ProvisioningException('[provisioning] error during database provisioning.');
+            throw new ProvisioningException('Error during database provisioning.');
         }
 
         //  2. Generate an app key for the instance
@@ -224,8 +227,7 @@ class InstanceProvisioner extends BaseInstanceProvisioner implements OfferingsAw
             ]);
 
             //  Set any package entries separately
-            $_instance->setPackages($request->get('packages', []));
-            $_instance->setPackagePath($request->get('package-path'));
+            $_instance->setPackages($request->getPackages());
 
             //  Create the guest row...
             $_host = $this->getFullyQualifiedDomainName($_name);
@@ -244,13 +246,13 @@ class InstanceProvisioner extends BaseInstanceProvisioner implements OfferingsAw
                 $_instance->save();
             });
         } catch (Exception $_ex) {
-            throw new RuntimeException('[provisioning:instance] error updating instance data: ' . $_ex->getMessage());
+            throw new RuntimeException('Error updating instance data: ' . $_ex->getMessage());
         }
 
         //  Fire off a "provisioned" event...
         Event::fire('dfe.provisioned', [$this, $request, $_instance->getMetadata()]);
 
-        $this->info('[provisioning:instance] instance "' . $_name . '" provisioned');
+        $this->info('[dfe.instance-provisioner.provision-instance] instance "' . $_name . '" provisioned');
 
         return $_instance->getMetadata();
     }
@@ -268,10 +270,10 @@ class InstanceProvisioner extends BaseInstanceProvisioner implements OfferingsAw
         $_instance = $request->getInstance();
         $_name = $_instance->instance_id_text;
 
-        $this->info('[deprovisioning:instance] instance "' . $_name . '" begin');
+        $this->debug('[dfe.instance-provisioner.deprovision-instance] instance "' . $_name . '" begin');
 
         if ($_keepDatabase) {
-            $this->info('[deprovisioning:instance] "keep-database" specified. Keeping existing schema, if any.');
+            $this->notice('[dfe.instance-provisioner.deprovision-instance] "keep-database" specified. Keeping existing schema, if any.');
         } else {
             //	Deprovision the database
             $_dbService = Provision::getDatabaseProvisioner($_instance->guest_location_nbr);
@@ -286,7 +288,7 @@ class InstanceProvisioner extends BaseInstanceProvisioner implements OfferingsAw
                 throw new RuntimeException('Instance row deletion failed.');
             }
         } catch (Exception $_ex) {
-            $this->error('[deprovisioning:instance] exception while deleting instance row: ' . $_ex->getMessage());
+            $this->error('[dfe.instance-provisioner.deprovision-instance] exception while deleting instance row: ' . $_ex->getMessage());
 
             return false;
         }
@@ -294,7 +296,7 @@ class InstanceProvisioner extends BaseInstanceProvisioner implements OfferingsAw
         //  Fire off a "deprovisioned" event...
         Event::fire('dfe.deprovisioned', [$this, $request]);
 
-        $this->info('[deprovisioning:instance] instance "' . $_name . '" complete');
+        $this->info('[dfe.instance-provisioner.deprovision-instance] instance "' . $_name . '" complete');
 
         return true;
     }
