@@ -111,18 +111,22 @@ class StorageProvisioner extends BaseStorageProvisioner implements PortableData
 
             //  Copy any package files...
             if (!empty($_packages)) {
-                foreach ($_packages as $_package) {
+                foreach ($_packages as $_index => $_package) {
                     try {
+                        $_packageName = date('YmdHis') . '-upload-package.dfpkg';
                         /** @noinspection PhpUndefinedMethodInspection */
-                        if (false === copy($_package, Disk::path([$_filesystem->getAdapter()->getPathPrefix(), $_packagePath, basename($_package)]))) {
+                        if (false === copy($_package, Disk::path([$_filesystem->getAdapter()->getPathPrefix(), $_packagePath, $_packageName]))) {
                             throw new \Exception();
                         }
 
+                        $_packages[$_index] = $_packageName;
                         $this->debug('[provisioning:storage] * copied package "' . $_package . '" to package-path');
                     } catch (\Exception $_ex) {
                         $this->error('[provisioning:storage] error copying package file to private path',
                             ['message' => $_ex->getMessage(), 'source' => $_package, 'destination' => $_packagePath]);
                     }
+
+                    $_instance->setPackages($_packagePath);
                 }
             } else {
                 $this->debug('[dfe.storage-provisioner.do-provision] * no packages to install');
