@@ -127,7 +127,7 @@ class StorageProvisioner extends BaseStorageProvisioner implements PortableData
                     }
                 }
 
-                !empty($_packages) && $_instance->setPackages($_packages)->save();
+                $request->setInstance($_instance->setPackages($_packages));
             } else {
                 $this->debug('[dfe.storage-provisioner.do-provision] * no packages to install');
             }
