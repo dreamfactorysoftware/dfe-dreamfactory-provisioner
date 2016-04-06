@@ -113,7 +113,7 @@ class StorageProvisioner extends BaseStorageProvisioner implements PortableData
             if (!empty($_packages)) {
                 foreach ($_packages as $_index => $_package) {
                     try {
-                        $_packageName = date('YmdHis') . '-upload-package.dfpkg';
+                        $_packageName = date('YmdHis') . '-upload-package.zip';
                         /** @noinspection PhpUndefinedMethodInspection */
                         if (false === copy($_package, Disk::path([$_filesystem->getAdapter()->getPathPrefix(), $_packagePath, $_packageName]))) {
                             throw new \Exception();
