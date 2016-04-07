@@ -64,6 +64,7 @@ class StorageProvisioner extends BaseStorageProvisioner implements PortableData
         //  Wipe existing stuff
         $_instance = $request->getInstance();
         $_filesystem = $request->getStorage();
+        $_packages = $request->get('packages', []);
         $_paths = [];
 
         //******************************************************************************
@@ -77,13 +78,17 @@ class StorageProvisioner extends BaseStorageProvisioner implements PortableData
         $_privateName = InstanceStorage::getPrivatePathName();
         $_ownerPrivatePath = $_privateName;
         $_privatePath = Disk::segment([$_instanceRootPath, $_privateName]);
+        $_packagePath = Disk::segment([$_privatePath, config('provisioning.package-path-name')]);
+
+        //logger('Paths', ['private' => $_privatePath, 'package' => $_packagePath]);
 
         //  Make sure everything exists
         try {
             !$_filesystem->has($_privatePath) && $_filesystem->createDir($_privatePath);
             !$_filesystem->has($_ownerPrivatePath) && $_filesystem->createDir($_ownerPrivatePath);
+            !$_filesystem->has($_packagePath) && $_filesystem->createDir($_packagePath);
 
-            //  Now ancillary sub-directories
+            //  Now collect ancillary sub-directories
             foreach (config('provisioning.public-paths', []) as $_path) {
                 $_paths[] = Disk::segment([$_instanceRootPath, $_path]);
             }
@@ -96,13 +101,38 @@ class StorageProvisioner extends BaseStorageProvisioner implements PortableData
                 $_paths[] = Disk::segment([$_ownerPrivatePath, $_path]);
             }
 
+            //  And create at once
             foreach ($_paths as $_path) {
                 !$_filesystem->has($_path) && $_filesystem->createDir($_path);
             }
 
-            $this->debug('[provisioning:storage] structure built', $_paths);
+            $this->debug('[provisioning:storage] structure built',
+                array_merge(['private' => $_privatePath, 'owner-private' => $_ownerPrivatePath, 'package' => $_packagePath], $_paths));
+
+            //  Copy any package files...
+            if (!empty($_packages)) {
+                foreach ($_packages as $_index => $_package) {
+                    try {
+                        $_packageName = date('YmdHis') . '-upload-package.zip';
+                        /** @noinspection PhpUndefinedMethodInspection */
+                        if (false === copy($_package, Disk::path([$_filesystem->getAdapter()->getPathPrefix(), $_packagePath, $_packageName]))) {
+                            throw new \Exception();
+                        }
+
+                        $_packages[$_index] = $_packageName;
+                        $this->debug('[provisioning:storage] * copied package "' . $_package . '" to package-path');
+                    } catch (\Exception $_ex) {
+                        $this->error('[provisioning:storage] error copying package file to private path',
+                            ['message' => $_ex->getMessage(), 'source' => $_package, 'destination' => $_packagePath]);
+                    }
+                }
+
+                $request->setInstance($_instance->setPackages($_packages));
+            } else {
+                $this->debug('[dfe.storage-provisioner.do-provision] * no packages to install');
+            }
         } catch (Exception $_ex) {
-            $this->error('[provisioning:storage] error creating directory structure: ' . $_ex->getMessage());
+            $this->error('[dfe.storage-provisioner.do-provision] error creating directory structure: ' . $_ex->getMessage());
 
             return false;
         }
@@ -110,10 +140,11 @@ class StorageProvisioner extends BaseStorageProvisioner implements PortableData
         //  Fire off a "storage.provisioned" event...
         Event::fire('dfe.storage.provisioned', [$this, $request]);
 
-        $this->info('[provisioning:storage] instance "' . $_instance->instance_id_text . '" complete');
+        $this->info('[dfe.storage-provisioner.do-provision] instance "' . $_instance->instance_id_text . '" complete');
 
-        $this->privatePath = $_privatePath;
-        $this->ownerPrivatePath = $_ownerPrivatePath;
+        $this->setPrivatePath($_privatePath);
+        $this->setOwnerPrivatePath($_ownerPrivatePath);
+        $this->setPackagePath($_packagePath);
 
         return true;
     }
@@ -132,17 +163,17 @@ class StorageProvisioner extends BaseStorageProvisioner implements PortableData
         $_filesystem = $request->getStorage();
         $_storagePath = $_instance->instance_id_text;
 
-        $this->info('[deprovisioning:storage] instance "' . $_instance->instance_id_text . '" begin');
+        $this->info('[dfe.storage-provisioner.do-deprovision] instance "' . $_instance->instance_id_text . '" begin');
 
         //  I'm not sure how hard this tries to delete the directory
         if (!$_filesystem->has($_storagePath)) {
-            $this->notice('[deprovisioning:storage] unable to stat storage path "' . $_storagePath . '". not deleting!');
+            $this->notice('[dfe.storage-provisioner.do-deprovision] unable to stat storage path "' . $_storagePath . '". not deleting!');
 
             return false;
         }
 
         if (!$_filesystem->deleteDir($_storagePath)) {
-            $this->error('[deprovisioning:storage] error deleting storage area "' . $_storagePath . '"');
+            $this->error('[dfe.storage-provisioner.do-deprovision] error deleting storage area "' . $_storagePath . '"');
 
             return false;
         }
@@ -150,7 +181,7 @@ class StorageProvisioner extends BaseStorageProvisioner implements PortableData
         //  Fire off a "storage.deprovisioned" event...
         Event::fire('dfe.storage.deprovisioned', [$this, $request]);
 
-        $this->info('[deprovisioning:storage] instance "' . $_instance->instance_id_text . '" complete');
+        $this->info('[dfe.storage-provisioner.do-deprovision] instance "' . $_instance->instance_id_text . '" complete');
 
         return true;
     }
@@ -162,7 +193,7 @@ class StorageProvisioner extends BaseStorageProvisioner implements PortableData
         $_instance = $request->getInstance();
         $_mount = $_instance->getStorageMount();
 
-        $this->info('[provisioning:storage:import] instance "' . $_instance->instance_id_text . '" begin');
+        $this->info('[dfe.storage-provisioner.import] instance "' . $_instance->instance_id_text . '" begin');
 
         //  Grab the target (zip archive) and pull out the target of the import
         $_zip = $request->getTarget();
@@ -223,7 +254,7 @@ class StorageProvisioner extends BaseStorageProvisioner implements PortableData
         //  Fire off a "storage.imported" event...
         Event::fire('dfe.storage.imported', [$this, $request]);
 
-        $this->info('[provisioning:storage:import] instance "' . $_instance->instance_id_text . '" complete');
+        $this->info('[dfe.storage-provisioner.import] instance "' . $_instance->instance_id_text . '" complete');
 
         return $_restored;
     }
@@ -234,7 +265,7 @@ class StorageProvisioner extends BaseStorageProvisioner implements PortableData
         $_instance = $request->getInstance();
         $_mount = $_instance->getStorageMount();
 
-        $this->info('[provisioning:storage:export] instance "' . $_instance->instance_id_text . '" begin');
+        $this->info('[dfe.storage-provisioner.export] instance "' . $_instance->instance_id_text . '" begin');
 
         $_tag = date('YmdHis') . '.' . $_instance->instance_id_text;
         $_workPath = $this->getWorkPath($_tag, true);
@@ -251,7 +282,7 @@ class StorageProvisioner extends BaseStorageProvisioner implements PortableData
         //  Fire off a "storage.exported" event...
         Event::fire('dfe.storage.exported', [$this, $request]);
 
-        $this->info('[provisioning:storage:export] instance "' . $_instance->instance_id_text . '" complete');
+        $this->info('[dfe.storage-provisioner.export] instance "' . $_instance->instance_id_text . '" complete');
 
         //  The name of the file in the snapshot mount
         return $_file;
