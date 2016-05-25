@@ -283,6 +283,14 @@ class InstanceProvisioner extends BaseInstanceProvisioner implements OfferingsAw
             }
         }
 
+        $_storageSvc = Provision::getStorageProvisioner($_instance->guest_location_nbr);
+
+        if (false === ($_storageConfig = $_storageSvc->deprovision($request))) {
+            throw new ProvisioningException('Failed to deprovision storage. Check logs for error.');
+        }
+
+
+
         try {
             if (!$_instance->delete()) {
                 throw new RuntimeException('Instance row deletion failed.');
