@@ -259,7 +259,8 @@ class StorageProvisioner extends BaseStorageProvisioner implements PortableData
             $_restored[] = $_file;
 
         }
-        //$_path && is_dir(dirname($_path)) && Disk::deleteTree(dirname($_path));
+        /*Cleanup temporary location */
+        $_path && is_dir(dirname($_path)) && Disk::deleteTree(dirname($_path));
         return $_restored;
 
     }
