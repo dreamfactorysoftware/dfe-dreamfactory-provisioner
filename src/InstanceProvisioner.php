@@ -272,6 +272,9 @@ class InstanceProvisioner extends BaseInstanceProvisioner implements OfferingsAw
 
         $this->debug('[dfe.instance-provisioner.deprovision-instance] instance "' . $_name . '" begin');
 
+        /* This calls the instance to clear cache (Dreamfactory Side) */
+        $_instance->call('/api/v2/system/cache', [], [], Request::METHOD_DELETE, false);
+
         if ($_keepDatabase) {
             $this->notice('[dfe.instance-provisioner.deprovision-instance] "keep-database" specified. Keeping existing schema, if any.');
         } else {
