@@ -23,6 +23,7 @@ use Exception;
 use Illuminate\Contracts\Filesystem\Filesystem;
 use Illuminate\Support\Facades\DB;
 use RuntimeException;
+use Illuminate\Http\Request;
 
 class InstanceProvisioner extends BaseInstanceProvisioner implements OfferingsAware
 {
@@ -272,6 +273,9 @@ class InstanceProvisioner extends BaseInstanceProvisioner implements OfferingsAw
 
         $this->debug('[dfe.instance-provisioner.deprovision-instance] instance "' . $_name . '" begin');
 
+        /* This calls the instance to clear cache (Dreamfactory Side) */
+        $_instance->call('/api/v2/system/cache', [], [], Request::METHOD_DELETE, false);
+
         if ($_keepDatabase) {
             $this->notice('[dfe.instance-provisioner.deprovision-instance] "keep-database" specified. Keeping existing schema, if any.');
         } else {
@@ -282,6 +286,14 @@ class InstanceProvisioner extends BaseInstanceProvisioner implements OfferingsAw
                 throw new ProvisioningException('Failed to deprovision database. Check logs for error.');
             }
         }
+
+        $_storageSvc = Provision::getStorageProvisioner($_instance->guest_location_nbr);
+
+        if (false === ($_storageConfig = $_storageSvc->deprovision($request))) {
+            throw new ProvisioningException('Failed to deprovision storage. Check logs for error.');
+        }
+
+
 
         try {
             if (!$_instance->delete()) {

@@ -203,26 +203,6 @@ class StorageProvisioner extends BaseStorageProvisioner implements PortableData
 
         $_path = null;
 
-        foreach ($_zip->listContents() as $_file) {
-            if ('dir' != $_file['type'] && false !== strpos($_file['path'], '.storage.zip')) {
-                $_from = Disk::segment([sys_get_temp_dir(), 'dfe', 'import', sha1($_file['path'])], true);
-
-                if (!$_archive->extractTo($_from, $_file['path'])) {
-                    throw new RuntimeException('Unable to unzip archive file "' . $_file['path'] . '" from snapshot.');
-                }
-
-                $_path = Disk::path([$_from, $_file['path']], false);
-
-                if (!$_path || !file_exists($_path)) {
-                    throw new InvalidArgumentException('$from file "' . $_file['path'] . '" missing or unreadable.');
-                }
-
-                $_from = new Filesystem(new ZipArchiveAdapter($_path));
-
-                break;
-            }
-        }
-
         if (!($_mount instanceof Filesystem)) {
             $_mount = new Filesystem(new ZipArchiveAdapter($_mount));
         }
@@ -232,24 +212,15 @@ class StorageProvisioner extends BaseStorageProvisioner implements PortableData
             $_mount->deleteDir('./');
         }
 
-        //  Extract the files
-        $_restored = [];
 
-        /** @type Filesystem $_archive */
-        foreach ($_from->listContents() as $_file) {
-            $_filename = $_file['path'];
-
-            if ('dir' == array_get($_file, 'type')) {
-                $_mount->createDir($_filename);
-            } else {
-                $_mount->writeStream($_filename, $_archive->readStream($_filename));
-            }
-
-            $_restored[] = $_file;
+        try {
+            $_restored = $this->_extractZipContents($_zip, $_archive, $_mount);
+        } catch (Exception $_ex) {
+            $this->error('[dfe.storage-provisioner._extractZipContents] : ' . $_ex->getMessage());
+            return false;
         }
 
-        unset($_from);
-        $_path && is_dir(dirname($_path)) && Disk::deleteTree(dirname($_path));
+
 
         //  Fire off a "storage.imported" event...
         Event::fire('dfe.storage.imported', [$this, $request]);
@@ -257,6 +228,41 @@ class StorageProvisioner extends BaseStorageProvisioner implements PortableData
         $this->info('[dfe.storage-provisioner.import] instance "' . $_instance->instance_id_text . '" complete');
 
         return $_restored;
+    }
+
+    protected function _extractZipContents($_zip, $_archive, $_mount){
+
+        $_restored = [];
+
+        foreach ($_zip->listContents() as $_file) {
+            if ('dir' != $_file['type'] && false !== strpos($_file['path'], '.storage.zip')) {
+                $_from = Disk::segment([sys_get_temp_dir(), 'dfe', 'import', sha1($_file['path'])], true);
+
+                if (!$_archive->extractTo($_from)) {
+                    throw new RuntimeException('Unable to unzip archive file "' . $_file['path'] . '" from snapshot.');
+                }
+
+                $_path = Disk::path([$_from, $_file['path']], false);
+
+                if (!$_path || !file_exists($_path)) {
+                    throw new InvalidArgumentException('$from file "' . $_file['path'] . '" missing or unreadable.');
+                }
+
+                $nestedZip = new Filesystem(new ZipArchiveAdapter($_path));
+                /* Handles nested zip functionality */
+                if(is_object($nestedZip)){
+                    $_nestedArchive = $nestedZip->getAdapter()->getArchive();
+                    $_nestedArchive->extractTo($_mount->getAdapter()->getPathPrefix());
+                }
+
+            }
+            $_restored[] = $_file;
+
+        }
+        /*Cleanup temporary location */
+        $_path && is_dir(dirname($_path)) && Disk::deleteTree(dirname($_path));
+        return $_restored;
+
     }
 
     /** @inheritdoc */
