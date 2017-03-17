@@ -23,6 +23,7 @@ use Exception;
 use Illuminate\Contracts\Filesystem\Filesystem;
 use Illuminate\Support\Facades\DB;
 use RuntimeException;
+use Illuminate\Http\Request;
 
 class InstanceProvisioner extends BaseInstanceProvisioner implements OfferingsAware
 {
