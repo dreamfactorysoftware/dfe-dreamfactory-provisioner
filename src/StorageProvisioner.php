@@ -73,6 +73,7 @@ class StorageProvisioner extends BaseStorageProvisioner implements PortableData
 
         //  The instance's base storage path
         $_instanceRootPath = trim($_instance->instance_id_text);
+        $this->debug('[provisioning:storage] Instance Root: ' . $_instanceRootPath);
 
         //  The user's and instance's private path
         $_privateName = InstanceStorage::getPrivatePathName();
@@ -84,9 +85,18 @@ class StorageProvisioner extends BaseStorageProvisioner implements PortableData
 
         //  Make sure everything exists
         try {
-            !$_filesystem->has($_privatePath) && $_filesystem->createDir($_privatePath);
-            !$_filesystem->has($_ownerPrivatePath) && $_filesystem->createDir($_ownerPrivatePath);
-            !$_filesystem->has($_packagePath) && $_filesystem->createDir($_packagePath);
+
+            if (false === $_filesystem->has($_privatePath)) {
+                $_filesystem->createDir($_privatePath);
+            }
+
+            if (false === $_filesystem->has($_ownerPrivatePath)) {
+                $_filesystem->createDir($_ownerPrivatePath);
+            }
+
+            if (false === $_filesystem->has($_packagePath)) {
+                $_filesystem->createDir($_packagePath);
+            }
 
             //  Now collect ancillary sub-directories
             foreach (config('provisioning.public-paths', []) as $_path) {
@@ -107,7 +117,11 @@ class StorageProvisioner extends BaseStorageProvisioner implements PortableData
             }
 
             $this->debug('[provisioning:storage] structure built',
-                array_merge(['private' => $_privatePath, 'owner-private' => $_ownerPrivatePath, 'package' => $_packagePath], $_paths));
+                array_merge([
+                    'private' => $_privatePath,
+                    'owner-private' => $_ownerPrivatePath,
+                    'package' => $_packagePath
+                ], $_paths));
 
             //  Copy any package files...
             if (!empty($_packages)) {
@@ -115,7 +129,12 @@ class StorageProvisioner extends BaseStorageProvisioner implements PortableData
                     try {
                         $_packageName = md5($_package) . '-upload-package.zip';
                         /** @noinspection PhpUndefinedMethodInspection */
-                        if (false === copy($_package, Disk::path([$_filesystem->getAdapter()->getPathPrefix(), $_packagePath, $_packageName]))) {
+                        if (false ===
+                            copy($_package, Disk::path([
+                                $_filesystem->getAdapter()->getPathPrefix(),
+                                $_packagePath,
+                                $_packageName
+                            ]))) {
                             throw new \Exception();
                         }
 
@@ -137,160 +156,163 @@ class StorageProvisioner extends BaseStorageProvisioner implements PortableData
             return false;
         }
 
-        //  Fire off a "storage.provisioned" event...
-        Event::fire('dfe.storage.provisioned', [$this, $request]);
+//  Fire off a "storage.provisioned" event...
+Event::fire('dfe.storage.provisioned', [$this, $request]);
 
-        $this->info('[dfe.storage-provisioner.do-provision] instance "' . $_instance->instance_id_text . '" complete');
+$this->info('[dfe.storage-provisioner.do-provision] instance "' . $_instance->instance_id_text . '" complete');
 
-        $this->setPrivatePath($_privatePath);
-        $this->setOwnerPrivatePath($_ownerPrivatePath);
-        $this->setPackagePath($_packagePath);
+$this->setPrivatePath($_privatePath);
+$this->setOwnerPrivatePath($_ownerPrivatePath);
+$this->setPackagePath($_packagePath);
 
-        return true;
+return true;
+}
+
+/**
+ * Deprovision an instance
+ *
+ * @param ProvisionServiceRequest $request
+ * @param array                   $options
+ *
+ * @return bool
+ */
+protected
+function doDeprovision($request, $options = [])
+{
+    $_instance = $request->getInstance();
+    $_filesystem = $request->getStorage();
+    $_storagePath = $_instance->instance_id_text;
+
+    $this->info('[dfe.storage-provisioner.do-deprovision] instance "' . $_instance->instance_id_text . '" begin');
+
+    //  I'm not sure how hard this tries to delete the directory
+    if (!$_filesystem->has($_storagePath)) {
+        $this->notice('[dfe.storage-provisioner.do-deprovision] unable to stat storage path "' .
+            $_storagePath .
+            '". not deleting!');
+
+        return false;
     }
 
-    /**
-     * Deprovision an instance
-     *
-     * @param ProvisionServiceRequest $request
-     * @param array                   $options
-     *
-     * @return bool
-     */
-    protected function doDeprovision($request, $options = [])
-    {
-        $_instance = $request->getInstance();
-        $_filesystem = $request->getStorage();
-        $_storagePath = $_instance->instance_id_text;
+    if (!$_filesystem->deleteDir($_storagePath)) {
+        $this->error('[dfe.storage-provisioner.do-deprovision] error deleting storage area "' . $_storagePath . '"');
 
-        $this->info('[dfe.storage-provisioner.do-deprovision] instance "' . $_instance->instance_id_text . '" begin');
-
-        //  I'm not sure how hard this tries to delete the directory
-        if (!$_filesystem->has($_storagePath)) {
-            $this->notice('[dfe.storage-provisioner.do-deprovision] unable to stat storage path "' . $_storagePath . '". not deleting!');
-
-            return false;
-        }
-
-        if (!$_filesystem->deleteDir($_storagePath)) {
-            $this->error('[dfe.storage-provisioner.do-deprovision] error deleting storage area "' . $_storagePath . '"');
-
-            return false;
-        }
-
-        //  Fire off a "storage.deprovisioned" event...
-        Event::fire('dfe.storage.deprovisioned', [$this, $request]);
-
-        $this->info('[dfe.storage-provisioner.do-deprovision] instance "' . $_instance->instance_id_text . '" complete');
-
-        return true;
+        return false;
     }
 
-    /** @inheritdoc */
-    public function import($request)
-    {
-        $_from = null;
-        $_instance = $request->getInstance();
-        $_mount = $_instance->getStorageMount();
+    //  Fire off a "storage.deprovisioned" event...
+    Event::fire('dfe.storage.deprovisioned', [$this, $request]);
 
-        $this->info('[dfe.storage-provisioner.import] instance "' . $_instance->instance_id_text . '" begin');
+    $this->info('[dfe.storage-provisioner.do-deprovision] instance "' . $_instance->instance_id_text . '" complete');
 
-        //  Grab the target (zip archive) and pull out the target of the import
-        $_zip = $request->getTarget();
-        /** @var \ZipArchive $_archive */
-        /** @noinspection PhpUndefinedMethodInspection */
-        $_archive = $_zip->getAdapter()->getArchive();
+    return true;
+}
 
-        $_path = null;
+/** @inheritdoc */
+public
+function import($request)
+{
+    $_from = null;
+    $_instance = $request->getInstance();
+    $_mount = $_instance->getStorageMount();
 
-        if (!($_mount instanceof Filesystem)) {
-            $_mount = new Filesystem(new ZipArchiveAdapter($_mount));
-        }
+    $this->info('[dfe.storage-provisioner.import] instance "' . $_instance->instance_id_text . '" begin');
 
-        //  If "clean" == true, storage is wiped clean before restore
-        if (true === $request->get('clean', false)) {
-            $_mount->deleteDir('./');
-        }
+    //  Grab the target (zip archive) and pull out the target of the import
+    $_zip = $request->getTarget();
+    /** @var \ZipArchive $_archive */
+    /** @noinspection PhpUndefinedMethodInspection */
+    $_archive = $_zip->getAdapter()->getArchive();
 
+    $_path = null;
 
-        try {
-            $_restored = $this->_extractZipContents($_zip, $_archive, $_mount);
-        } catch (Exception $_ex) {
-            $this->error('[dfe.storage-provisioner._extractZipContents] : ' . $_ex->getMessage());
-            return false;
-        }
-
-
-
-        //  Fire off a "storage.imported" event...
-        Event::fire('dfe.storage.imported', [$this, $request]);
-
-        $this->info('[dfe.storage-provisioner.import] instance "' . $_instance->instance_id_text . '" complete');
-
-        return $_restored;
+    if (!($_mount instanceof Filesystem)) {
+        $_mount = new Filesystem(new ZipArchiveAdapter($_mount));
     }
 
-    protected function _extractZipContents($_zip, $_archive, $_mount){
+    //  If "clean" == true, storage is wiped clean before restore
+    if (true === $request->get('clean', false)) {
+        $_mount->deleteDir('./');
+    }
 
-        $_restored = [];
+    try {
+        $_restored = $this->_extractZipContents($_zip, $_archive, $_mount);
+    } catch (Exception $_ex) {
+        $this->error('[dfe.storage-provisioner._extractZipContents] : ' . $_ex->getMessage());
 
-        foreach ($_zip->listContents() as $_file) {
-            if ('dir' != $_file['type'] && false !== strpos($_file['path'], '.storage.zip')) {
-                $_from = Disk::segment([sys_get_temp_dir(), 'dfe', 'import', sha1($_file['path'])], true);
+        return false;
+    }
 
-                if (!$_archive->extractTo($_from)) {
-                    throw new RuntimeException('Unable to unzip archive file "' . $_file['path'] . '" from snapshot.');
-                }
+    //  Fire off a "storage.imported" event...
+    Event::fire('dfe.storage.imported', [$this, $request]);
 
-                $_path = Disk::path([$_from, $_file['path']], false);
+    $this->info('[dfe.storage-provisioner.import] instance "' . $_instance->instance_id_text . '" complete');
 
-                if (!$_path || !file_exists($_path)) {
-                    throw new InvalidArgumentException('$from file "' . $_file['path'] . '" missing or unreadable.');
-                }
+    return $_restored;
+}
 
-                $nestedZip = new Filesystem(new ZipArchiveAdapter($_path));
-                /* Handles nested zip functionality */
-                if(is_object($nestedZip)){
-                    $_nestedArchive = $nestedZip->getAdapter()->getArchive();
-                    $_nestedArchive->extractTo($_mount->getAdapter()->getPathPrefix());
-                }
+protected
+function _extractZipContents($_zip, $_archive, $_mount)
+{
 
+    $_restored = [];
+
+    foreach ($_zip->listContents() as $_file) {
+        if ('dir' != $_file['type'] && false !== strpos($_file['path'], '.storage.zip')) {
+            $_from = Disk::segment([sys_get_temp_dir(), 'dfe', 'import', sha1($_file['path'])], true);
+
+            if (!$_archive->extractTo($_from)) {
+                throw new RuntimeException('Unable to unzip archive file "' . $_file['path'] . '" from snapshot.');
             }
-            $_restored[] = $_file;
 
+            $_path = Disk::path([$_from, $_file['path']], false);
+
+            if (!$_path || !file_exists($_path)) {
+                throw new InvalidArgumentException('$from file "' . $_file['path'] . '" missing or unreadable.');
+            }
+
+            $nestedZip = new Filesystem(new ZipArchiveAdapter($_path));
+            /* Handles nested zip functionality */
+            if (is_object($nestedZip)) {
+                $_nestedArchive = $nestedZip->getAdapter()->getArchive();
+                $_nestedArchive->extractTo($_mount->getAdapter()->getPathPrefix());
+            }
         }
-        /*Cleanup temporary location */
-        $_path && is_dir(dirname($_path)) && Disk::deleteTree(dirname($_path));
-        return $_restored;
+        $_restored[] = $_file;
+    }
+    /*Cleanup temporary location */
+    $_path && is_dir(dirname($_path)) && Disk::deleteTree(dirname($_path));
 
+    return $_restored;
+}
+
+/** @inheritdoc */
+public
+function export($request)
+{
+    $_instance = $request->getInstance();
+    $_mount = $_instance->getStorageMount();
+
+    $this->info('[dfe.storage-provisioner.export] instance "' . $_instance->instance_id_text . '" begin');
+
+    $_tag = date('YmdHis') . '.' . $_instance->instance_id_text;
+    $_workPath = $this->getWorkPath($_tag, true);
+    $_target = $_tag . '.storage.zip';
+
+    //  Create our zip container
+    if (false !== ($_file = static::archiveTree($_mount, $_workPath . DIRECTORY_SEPARATOR . $_target))) {
+        //  Copy it over to the snapshot area
+        $this->writeStream($_instance->getSnapshotMount(), $_workPath . DIRECTORY_SEPARATOR . $_target, $_target);
     }
 
-    /** @inheritdoc */
-    public function export($request)
-    {
-        $_instance = $request->getInstance();
-        $_mount = $_instance->getStorageMount();
+    !$request->get('keep-work', false) && $this->deleteWorkPath($_tag);
 
-        $this->info('[dfe.storage-provisioner.export] instance "' . $_instance->instance_id_text . '" begin');
+    //  Fire off a "storage.exported" event...
+    Event::fire('dfe.storage.exported', [$this, $request]);
 
-        $_tag = date('YmdHis') . '.' . $_instance->instance_id_text;
-        $_workPath = $this->getWorkPath($_tag, true);
-        $_target = $_tag . '.storage.zip';
+    $this->info('[dfe.storage-provisioner.export] instance "' . $_instance->instance_id_text . '" complete');
 
-        //  Create our zip container
-        if (false !== ($_file = static::archiveTree($_mount, $_workPath . DIRECTORY_SEPARATOR . $_target))) {
-            //  Copy it over to the snapshot area
-            $this->writeStream($_instance->getSnapshotMount(), $_workPath . DIRECTORY_SEPARATOR . $_target, $_target);
-        }
-
-        !$request->get('keep-work', false) && $this->deleteWorkPath($_tag);
-
-        //  Fire off a "storage.exported" event...
-        Event::fire('dfe.storage.exported', [$this, $request]);
-
-        $this->info('[dfe.storage-provisioner.export] instance "' . $_instance->instance_id_text . '" complete');
-
-        //  The name of the file in the snapshot mount
-        return $_file;
-    }
+    //  The name of the file in the snapshot mount
+    return $_file;
+}
 }
