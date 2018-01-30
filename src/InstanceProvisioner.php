@@ -134,6 +134,8 @@ class InstanceProvisioner extends BaseInstanceProvisioner implements OfferingsAw
      * @param ProvisionServiceRequest $request
      *
      * @return Filesystem
+     *
+     * @return mixed
      */
     protected function provisionStorage($request)
     {
@@ -292,7 +294,6 @@ class InstanceProvisioner extends BaseInstanceProvisioner implements OfferingsAw
         if (false === ($_storageConfig = $_storageSvc->deprovision($request))) {
             throw new ProvisioningException('Failed to deprovision storage. Check logs for error.');
         }
-
 
 
         try {
